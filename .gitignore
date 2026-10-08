@@ -1,0 +1,37 @@
+node_modules/
+
+# Local packaging and browser verification artifacts (keep deliverable dist files).
+/dist/share-staging/
+/docs/recovery/evidence/
+/test-results/
+/playwright-report/
+/coverage/
+/screenshots/
+/browser-backups/
+/backups/
+节拍数据备份-*.json
+
+# Local credentials and machine settings; never commit personal data here.
+.env
+.env.*
+!.env.example
+.npmrc
+.aws/
+.ssh/
+credentials.json
+secrets.json
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Editor, OS and temporary files.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.bak
+*~
