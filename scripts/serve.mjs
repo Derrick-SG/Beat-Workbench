@@ -10,6 +10,7 @@ const assets = new Map([
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']]
 ]);
+for(const name of ['bootstrap.js','model/workspace.js','model/time.js','profile/avatar.js','profile/editor.js','storage/browser.js','storage/directory.js','storage/settings.js','storage/controller.js','timers/sessions.js']) assets.set('/'+name,[name,'text/javascript; charset=utf-8']);
 export function createServer() {
   return http.createServer(async (request, response) => {
     if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405, { Allow: 'GET, HEAD' }); response.end(); return; }

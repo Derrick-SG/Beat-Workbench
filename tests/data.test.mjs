@@ -1,7 +1,9 @@
+import { recordsInRange } from '../src/model/time.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import {parseProfileBackup,makeProfileBackup} from '../src/model/workspace.js';
 
 // Execute unchanged production functions; substitute only browser I/O/UI boundaries.
 function harness() {
@@ -15,7 +17,7 @@ function harness() {
   const storage = new Map([['logs:original', '[{"id":99}]']]);
   const elements = new Map();
   const context = vm.createContext({
-    Blob, console, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
+    Blob, console, workbench:{controller:{getWorkspace:()=>({workspaceId:'test'})}}, recordsInRange, parseProfileBackup, makeProfileBackup, validateAvatar:async value=>value, flowStartedAt:null,meetingStartedAt:null,taskTracking:null,meetingDraft:null, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
     window: { appStorage: { setItem: (key, value) => storage.set(key, value) } },
     profileDataKey: id => 'logs:' + id, profileTasksKey: id => 'tasks:' + id,
     today: () => '2026-10-08',
@@ -24,7 +26,7 @@ function harness() {
     persistProfiles() {}, toast(message) { context.lastToast = message; },
     currentProfile() { return context.profiles.find(p => p.id === context.activeProfileId); },
     downloadBlob(blob, filename) { context.download = { blob, filename }; },
-    FileReader: class { readAsText(file) { this.result = file.text; this.onload(); } }
+    FileReader: class { readAsText(file) { this.result = file.text; context.importDone=this.onload(); } }
   });
   vm.runInContext(functions, context);
   context.storage = storage;
@@ -36,7 +38,7 @@ const task = { id: 'task-1', project: '项目A', text: '确认方案', completed
 
 test('v3 backup imports independently and exports/reimports complete supported fields', async () => {
   const c = harness();
-  c.importBackup({ name: 'backup.json', text: JSON.stringify({ app: '节拍工作台', version: 3, profile: {name: '原用户'}, records: [record], tasks: [task] }) });
+  c.importBackup({ name: 'backup.json', text: JSON.stringify({ app: '节拍工作台', version: 3, profile: {name: '原用户'}, records: [record], tasks: [task] }) }); await c.importDone;
   assert.equal(c.profiles.length, 2);
   assert.notEqual(c.activeProfileId, 'original');
   assert.notEqual(c.profiles[1].name, '原用户');
@@ -45,35 +47,35 @@ test('v3 backup imports independently and exports/reimports complete supported f
   assert.deepEqual(plain(c.tasks), [task]);
   c.exportBackup();
   const backup = JSON.parse(await c.download.blob.text());
-  assert.equal(backup.version, 3);
+  assert.equal(backup.version, 4);
   assert.deepEqual(backup.records, [record]);
   assert.deepEqual(backup.tasks, [task]);
   const next = harness();
-  next.importBackup({ name: 'roundtrip.json', text: JSON.stringify(backup) });
+  next.importBackup({ name: 'roundtrip.json', text: JSON.stringify(backup) }); await next.importDone;
   assert.deepEqual(plain(next.logs), [record]);
   assert.deepEqual(plain(next.tasks), [task]);
 });
 
-test('legacy arrays normalize old categories and preserve original profile', () => {
+test('legacy arrays normalize old categories and preserve original profile', async () => {
   const c = harness();
-  c.importBackup({ name: 'legacy.json', text: JSON.stringify([{ ...record, category: '沟通协作' }]) });
+  c.importBackup({ name: 'legacy.json', text: JSON.stringify([{ ...record, category: '沟通协作' }]) }); await c.importDone;
   assert.deepEqual(plain(c.logs), [record]);
   assert.deepEqual(plain(c.tasks), []);
   assert.equal(c.profiles.length, 2);
   assert.equal(c.storage.get('logs:original'), '[{"id":99}]');
 });
 
-test('empty records import; malformed inputs leave the selected profile untouched', () => {
+test('empty records import; malformed inputs leave the selected profile untouched', async () => {
   for (const text of ['{', 'null', '{}', '{"records":[null]}']) {
     const c = harness();
-    c.importBackup({ name: 'bad.json', text });
+    c.importBackup({ name: 'bad.json', text }); await c.importDone;
     assert.equal(c.activeProfileId, 'original');
     assert.equal(c.profiles.length, 1);
     assert.deepEqual(plain(c.logs), [{id:99}]);
     assert.match(c.lastToast, /导入失败/);
   }
   const c = harness();
-  c.importBackup({ name: 'empty.json', text: '{"records":[]}' });
+  c.importBackup({ name: 'empty.json', text: '{"records":[]}' }); await c.importDone;
   assert.equal(c.profiles.length, 2);
   assert.deepEqual(plain(c.logs), []);
 });
@@ -97,4 +99,7 @@ test('overlaps count once and shared project time is apportioned; overnight dura
     {...record, project:'B', startTime:'10:00', endTime:'12:00'}
   ]);
   assert.deepEqual(plain(result), {total:3, projectHours:{A:1.5, B:1.5}});
+  const start=new Date('2026-10-09T09:00:00').getTime();
+  const segmented={...record,workDate:'2026-10-09',timeSegments:[{start,end:start+15000},{start:start+3615000,end:start+3630000}]};
+  assert.equal(c.timeStatsFor([segmented]).total,30/3600);
 });

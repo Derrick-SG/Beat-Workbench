@@ -3,8 +3,30 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+export async function bundleModule(entry) {
+  const emitted=new Set(),visiting=new Set(),parts=['const __modules = {};'];
+  async function visit(id){
+    if(emitted.has(id))return;
+    if(visiting.has(id))throw Error('Cyclic module import: '+id);visiting.add(id);
+    let code=await readFile(path.join(root,id),'utf8');const bindings=[];
+    const imports=[...code.matchAll(/^import \{([^}]+)\} from ['"]([^'"]+)['"];?\r?$/gm)];
+    for(const item of imports){
+      if(!item[2].startsWith('.'))throw Error('External module is unsupported');
+      const child=path.posix.normalize(path.posix.join(path.posix.dirname(id),item[2]));
+      if(!child.startsWith('src/'))throw Error('Module outside src');
+      await visit(child);bindings.push('const {'+item[1].replace(/\bas\b/g,':')+'}=__modules['+JSON.stringify(child)+'];');code=code.replace(item[0],'');
+    }
+    if(/^\s*import\s/m.test(code)||/\bimport\s*\(/.test(code))throw Error('Unsupported import syntax in '+id);
+    const exports=[...code.matchAll(/^export (?:async )?function ([A-Za-z_$][\w$]*)/gm)].map(m=>m[1]);
+    code=code.replace(/^export (?=(?:async )?function )/gm,'');
+    if(/^\s*export\s/m.test(code))throw Error('Unsupported export syntax in '+id);
+    parts.push('__modules['+JSON.stringify(id)+']=await (async()=>{\n'+bindings.join('\n')+'\n'+code+'\nreturn {'+exports.join(',')+'};\n})();');
+    visiting.delete(id);emitted.add(id);
+  }
+  await visit(entry);return parts.join('\n');
+}
 export async function build() {
-  const [html, css, js] = await Promise.all(['index.html', 'styles.css', 'app.js'].map(name => readFile(path.join(root, 'src', name), 'utf8')));
+  const [html, css, js] = await Promise.all([readFile(path.join(root,'src/index.html'),'utf8'),readFile(path.join(root,'src/styles.css'),'utf8'),bundleModule('src/app.js')]);
   const styleTag = '<link rel="stylesheet" href="./styles.css">';
   const scriptTag = '<script type="module" src="./app.js"></script>';
   if (html.split(styleTag).length !== 2 || html.split(scriptTag).length !== 2) throw new Error('Source entry must contain exactly one stylesheet and application module reference.');

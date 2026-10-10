@@ -1,25 +1,14 @@
+import { recordsInRange, segmentHours } from './model/time.js';
+import { initializeWorkbench } from './bootstrap.js';
+import { parseProfileBackup, makeProfileBackup } from './model/workspace.js';
+import { validateAvatar } from './profile/avatar.js';
+const workbench = await initializeWorkbench();
+const sessionIds = {};
+const sessionRuns = {};
+let checkpointBusy = false;
 
     function useStandaloneStorage() {
-      const memoryData = new Map();
-      const memoryStorage = {
-        getItem(key) { return memoryData.has(String(key)) ? memoryData.get(String(key)) : null; },
-        setItem(key, value) { memoryData.set(String(key), String(value)); },
-        removeItem(key) { memoryData.delete(String(key)); }
-      };
-      let storage = memoryStorage;
-      let status = '临时浏览器模式 · 浏览器禁止本地存储，关闭页面后数据会清除';
-      try {
-        const local = window.localStorage;
-        const probeKey = '__jiepai_storage_probe__';
-        local.setItem(probeKey, '1');
-        local.removeItem(probeKey);
-        storage = local;
-        status = '独立浏览器模式 · 数据仅保存于当前浏览器';
-      } catch (error) {
-        // file:// pages may be denied localStorage; memory mode keeps every feature usable.
-      }
-      window.appStorage = storage;
-      document.getElementById('storage-mode-status').textContent = status;
+      window.appStorage = workbench.storage;
     }
     useStandaloneStorage();
     const legacyStoreKey = 'jiepai-work-logs-v1';
@@ -122,17 +111,20 @@
       const names = profiles.map((item) => item.name);
       if (!names.includes(base)) return base;
       let number = 2;
-      while (names.includes(base + '（' + number + '）')) number += 1;
-      return base + '（' + number + '）';
+      while (names.includes(base.slice(0,30-String(number).length-2) + '（' + number + '）')) number += 1;
+      return base.slice(0,30-String(number).length-2) + '（' + number + '）';
     }
     function renderProfiles() {
       const active = currentProfile();
       get('current-user-name').textContent = active.name;
+      workbench.avatar(get('current-user-avatar'), active.avatar);
       get('user-list').innerHTML = profiles.map((item) =>
         '<div class="user-row' + (item.id === activeProfileId ? ' active' : '') + '"><div><span>' + escapeHtml(item.name) + '</span><small>' + (item.id === activeProfileId ? '当前使用中' : '独立工作区') + '</small></div>' + (item.id === activeProfileId ? '<small>当前</small>' : '<button class="switch-user" data-profile-id="' + escapeHtml(item.id) + '" type="button">切换</button>') + '</div>'
       ).join('');
+      for (const [index,item] of profiles.entries()) { const target=get('user-list').children[index]?.firstElementChild; if(target){const a=document.createElement('span');a.className='avatar avatar-list';workbench.avatar(a,item.avatar);target.prepend(a);} }
     }
     function switchProfile(id) {
+      if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) { toast('请先结束计时再切换用户。'); return; }
       const target = profiles.find((item) => item.id === id);
       if (!target || target.id === activeProfileId) return;
       resetReportEditors();
@@ -277,18 +269,19 @@
       if (taskTrackingTimer) window.clearInterval(taskTrackingTimer);
       taskTrackingTimer = null;
     }
-    function startTaskTracking(project) {
+    async function startTaskTracking(project) {
       const normalizedProject = String(project || '').trim();
       if (!normalizedProject) return;
       if (taskTracking && taskTracking.project === normalizedProject) {
         stopTaskTracking(false);
         return;
       }
-      if (taskTracking) stopTaskTracking(false);
+      if (taskTracking) { stopTaskTracking(false); await workbench.flushLegacy(); }
       taskTracking = { project: normalizedProject, startedAt: new Date() };
       get('project').value = normalizedProject;
       clearTaskTrackingTimer();
       taskTrackingTimer = window.setInterval(updateTaskTrackingControls, 1000);
+      await beginSession('task');
       renderPendingTasks();
       toast('已开始追踪“' + normalizedProject + '”，再次点击“不追踪”即可结束并记录时长。');
     }
@@ -304,7 +297,7 @@
         let endTime = timeString(endedAt);
         if (startTime === endTime) endTime = timeAfter(startTime, 1 / 60);
         const remaining = openTasksFor(tracking.project);
-        logs.push({
+        const record = {
           id: Date.now(),
           workDate: dateKey(tracking.startedAt),
           title: (automaticallyCompleted ? '任务追踪完成：' : '任务追踪：') + tracking.project,
@@ -317,7 +310,8 @@
           outcome: automaticallyCompleted ? '待完成任务已全部完成。' : '本次追踪结束；仍有 ' + remaining.length + ' 项待完成任务。',
           nextStep: remaining.map((task) => task.text).join('；'),
           meetingContent: '', painPoint: '', painSolution: '', painStatus: '已解决', painResponse: ''
-        });
+        };
+        applySessionRecord(record, 'task'); logs.push(record);
       }
       save();
       toast(automaticallyCompleted ? '该项目待完成任务已全部完成，追踪工作已自动记录。' : '已结束任务追踪，并将本次时长计入工作记录。');
@@ -386,7 +380,7 @@
     }
     function selectedLogs() {
       const range = rangeFor(mode, get('anchor-date').value);
-      return logs.filter((item) => item.workDate >= range.start && item.workDate <= range.end).sort((a, b) => a.workDate.localeCompare(b.workDate));
+      return recordsInRange(logs, range).sort((a, b) => a.workDate.localeCompare(b.workDate));
     }
     function minutesFor(time) {
       const match = String(time || '').match(/^(\d{2}):(\d{2})$/);
@@ -406,11 +400,11 @@
     }
     function timeStatsFor(items) {
       const itemsByDay = {};
-      items.forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
+      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
       const projectMinutes = {};
       let totalMinutes = 0;
       Object.values(itemsByDay).forEach((dayItems) => {
-        const ranges = dayItems.map(timeRangeFor).filter(Boolean);
+        const ranges = dayItems.flatMap(item => item._ranges || [timeRangeFor(item)]).filter(Boolean);
         if (!ranges.length) return;
         const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
         for (let index = 0; index < markers.length - 1; index += 1) {
@@ -656,7 +650,7 @@
     }
     function dashboardSnapshot(currentMode) {
       const range = currentMode === 'day' ? { start: today(), end: today() } : rangeFor(currentMode, today());
-      const items = logs.filter((item) => item.workDate >= range.start && item.workDate <= range.end);
+      const items = recordsInRange(logs, range);
       const timeStats = timeStatsFor(items);
       const plannedItems = items.filter((item) => String(item.nextStep || '').trim());
       const completedItems = items.filter((item) => Number(item.progress) >= 100);
@@ -696,7 +690,7 @@
     }
     function renderDailyReport() {
       const selectedDate = get('daily-date').value || today();
-      const items = logs.filter((item) => item.workDate === selectedDate).sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+      const items = recordsInRange(logs, {start:selectedDate,end:selectedDate}).sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
       const report = dailyReportFor(items, selectedDate);
       get('daily-hours-total').textContent = report.total.toFixed(1);
       get('daily-done-total').textContent = report.done;
@@ -775,6 +769,7 @@
       renderProfiles();
     }
     function toast(message) {
+      if (workbench.delayToast(message)) return;
       const node = get('toast');
       node.textContent = message;
       node.classList.add('show');
@@ -795,6 +790,8 @@
         const hours = importedHours > 0 && importedHours <= 24 ? importedHours : durationHours(startTime, endTime);
         return {
           id,
+          ...(typeof item.sessionId === 'string' ? {sessionId:item.sessionId} : {}),
+          ...(Array.isArray(item.timeSegments) ? {timeSegments:item.timeSegments} : {}),
           workDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.workDate || '')) ? String(item.workDate) : today(),
           title: String(item.title || '未命名工作').slice(0, 200),
           project: String(item.project || '').slice(0, 120),
@@ -815,28 +812,27 @@
     }
     function exportBackup() {
       const profile = currentProfile();
-      const backup = {
-        app: '节拍工作台',
-        version: 3,
-        exportedAt: new Date().toISOString(),
-        profile: { name: profile.name },
-        records: logs,
-        tasks
-      };
+      const backup = makeProfileBackup({ ...profile, records: logs, tasks });
       const fileSafeName = profile.name.replace(/[\\/:*?"<>|]/g, '_');
       downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' }), '节拍数据备份-' + fileSafeName + '-' + today() + '.json');
       toast('已导出当前用户备份，可复制到新电脑后导入。');
     }
     function importBackup(file) {
       if (!file) return;
+      const importWorkspaceId = workbench.controller.getWorkspace().workspaceId;
+      const importProfileId = activeProfileId;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const backup = JSON.parse(String(reader.result || ''));
-          const records = normalizeImportedRecords(Array.isArray(backup) ? backup : backup.records);
-          const importedTasks = !Array.isArray(backup) ? normalizeTasks(backup.tasks) : [];
+          const parsed = parseProfileBackup(backup);
+          const avatar = await validateAvatar(parsed.avatar);
+          if (workbench.controller.getWorkspace().workspaceId !== importWorkspaceId || activeProfileId !== importProfileId) throw Error('导入期间数据来源已变化，请重试');
+          if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) throw Error('请先结束计时');
+          const records = normalizeImportedRecords(parsed.records);
+          const importedTasks = normalizeTasks(parsed.tasks);
           const sourceName = !Array.isArray(backup) && backup.profile && backup.profile.name ? backup.profile.name : file.name.replace(/\.json$/i, '');
-          const profile = { id: 'user-' + Date.now() + '-' + Math.random().toString(16).slice(2), name: uniqueProfileName(sourceName) };
+          const profile = { id: 'user-' + Date.now() + '-' + Math.random().toString(16).slice(2), name: uniqueProfileName(sourceName), avatar };
           profiles.push(profile);
           activeProfileId = profile.id;
           logs = records;
@@ -954,7 +950,7 @@
       }
       timer.textContent = formatMeetingElapsed(Date.now() - flowStartedAt.getTime());
     }
-    function startFlowMode() {
+    async function startFlowMode() {
       const isNewFlow = !flowStartedAt;
       if (isNewFlow) {
         flowStartedAt = new Date();
@@ -965,6 +961,7 @@
         clearFlowTimer();
         flowTimer = window.setInterval(updateFlowControls, 1000);
       }
+      if (isNewFlow) await beginSession('flow');
       updateFlowControls();
       switchFeaturePanel('flow-mode', true);
       if (isNewFlow) toast('心流计时已开始。完成工作时会自动写入工作记录。');
@@ -1003,6 +1000,7 @@
         painStatus: '已解决',
         painResponse: ''
       };
+      applySessionRecord(record, 'flow');
       logs.push(record);
       addPersistentTasks(project, flowDraftTasks.filter((task) => !task.sourceTaskId), '心流模式');
       flowStartedAt = null;
@@ -1028,6 +1026,7 @@
       if (result === 'invalid-duration') toast('本次心流计时异常，请在 24 小时内完成并记录。');
     });
     function completeFlowOnPageExit(event) {
+      if (workbench.isDirectory()) return;
       if (event.type === 'pagehide' && event.persisted === true) return;
       completeFlow({ background: true });
     }
@@ -1117,17 +1116,19 @@
       if (meetingTimer) window.clearInterval(meetingTimer);
       meetingTimer = null;
     }
-    function startMeeting() {
+    async function startMeeting() {
       meetingStartedAt = new Date();
       updateMeetingControls();
       clearMeetingTimer();
       meetingTimer = window.setInterval(updateMeetingControls, 1000);
+      await beginSession('meeting');
       toast('已开始会议计时。结束后补充会议记录即可。');
     }
     function endMeeting() {
       const startedAt = meetingStartedAt;
       const endedAt = new Date();
       meetingStartedAt = null;
+      if(sessionRuns.meeting)sessionRuns.meeting.end=endedAt.getTime();
       clearMeetingTimer();
       updateMeetingControls();
       if (!startedAt) return;
@@ -1137,16 +1138,19 @@
       if (startTime === endTime && elapsedHours < 23.99) endTime = timeAfter(startTime, 1 / 60);
       meetingDraft = { workDate: dateKey(startedAt), startTime, endTime, hours: elapsedHours };
       get('meeting-project').value = (flowStartedAt && get('flow-project').value.trim()) || get('project').value.trim();
-      get('meeting-dialog-content').value = '';
-      get('meeting-outcome').value = '';
-      meetingDraftTasks = [];
+      if (!sessionRuns.meeting?.restored) {
+        get('meeting-dialog-content').value = '';
+        get('meeting-outcome').value = '';
+        meetingDraftTasks = [];
+      }
       renderDraftTasks('meeting');
       get('meeting-time-summary').textContent = '会议时间：' + meetingDraft.workDate + ' ' + startTime + '–' + endTime + '，已自动统计 ' + elapsedHours.toFixed(1) + ' 小时。';
       meetingDialog.showModal();
     }
     get('meeting-toggle').addEventListener('click', () => meetingStartedAt ? endMeeting() : startMeeting());
     get('flow-meeting-toggle').addEventListener('click', () => meetingStartedAt ? endMeeting() : startMeeting());
-    get('cancel-meeting-record').addEventListener('click', () => {
+    get('cancel-meeting-record').addEventListener('click', async () => {
+      await discardSession('meeting');
       meetingDraft = null;
       meetingDialog.close();
       toast('本次会议未写入工作记录。');
@@ -1181,6 +1185,7 @@
         painStatus: '已解决',
         painResponse: ''
       };
+      applySessionRecord(record, 'meeting');
       logs.push(record);
       addPersistentTasks(project, meetingDraftTasks, '快速会议');
       meetingDraft = null;
@@ -1269,6 +1274,7 @@
     });
     get('close-data-dialog').addEventListener('click', () => dataDialog.close());
     get('create-profile').addEventListener('click', () => {
+      if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) { toast('请先结束计时再新建用户。'); return; }
       const requestedName = get('new-profile-name').value.trim();
       if (!requestedName) {
         toast('请先填写使用者名称。');
@@ -1602,4 +1608,82 @@
     updateDurationPreview();
     renderProfiles();
     render();
-  
+
+    workbench.bind({
+      refresh(workspace) {
+        profiles = workspace.profiles.map(({id,name,avatar}) => ({id,name,avatar}));
+        activeProfileId = workspace.activeProfileId;
+        const profile = workspace.profiles.find(p => p.id === activeProfileId);
+        logs = profile.records.map(normalizeLog); tasks = normalizeTasks(profile.tasks);
+        render(); renderProfiles();
+        if(document.querySelector('.session-recovery'))renderSessionRecovery();
+      },
+      timerGuard: () => Boolean(flowStartedAt || meetingStartedAt || taskTracking || meetingDraft),
+      formGuard: () => {
+        const form = get('work-form');
+        const dirty = form && [...form.querySelectorAll('input,textarea')].some(x => ['title','outcome','next-step','pain-point'].includes(x.id) && x.value.trim());
+        if (dirty && !confirm('工作表单尚未保存。放弃修改并切换数据来源？')) return false;
+        if (dirty) resetWorkForm(); return true;
+      }
+    });
+
+    function sessionSnapshot(kind) {
+      const started = kind === 'flow' ? flowStartedAt : kind === 'meeting' ? meetingStartedAt : taskTracking?.startedAt;
+      const session = workbench.controller.getWorkspace().sessions.find(s => s.id === sessionIds[kind]);
+      const draft = kind === 'flow' ? {project:get('flow-project').value,category:get('flow-category').value,tasks:flowDraftTasks} : kind === 'meeting' ? {project:get('meeting-project').value || get('project').value,content:get('meeting-dialog-content').value,outcome:get('meeting-outcome').value,tasks:meetingDraftTasks,meetingDraft} : {project:taskTracking?.project || session?.draft.project};
+      const run=sessionRuns[kind];
+      const segments=run ? [...run.prior,{start:run.start,end:run.end || Date.now()}] : session?.draft.segments || [];
+      return {elapsedMs:started ? Math.max(0,Date.now()-started.getTime()) : kind === 'meeting' && meetingDraft ? meetingDraft.hours*3600000 : session?.elapsedMs || 0,draft:{...draft,segments,originDate:session?.draft.originDate || dateKey(started || new Date()),originTime:session?.draft.originTime || timeString(started || new Date())}};
+    }
+    async function beginSession(kind) {
+      if (!workbench.isDirectory()) return;
+      const id = globalThis.crypto?.randomUUID?.() || ('session-'+Date.now()+'-'+Math.random());
+      sessionIds[kind] = id;
+      sessionRuns[kind] = {start:Date.now(),prior:[]};
+      const snapshot = sessionSnapshot(kind);
+      try { await workbench.controller.commit(w => {w.sessions.push({id,workspaceId:w.workspaceId,profileId:activeProfileId,kind,status:'running',checkpointAt:new Date().toISOString(),...snapshot});return w;}); }
+      catch(e) { toast('计时检查点未保存：'+e.message); }
+    }
+    async function discardSession(kind) {
+      const id=sessionIds[kind]; if (!id) return;
+      await workbench.controller.commit(w => {w.sessions=w.sessions.filter(s=>s.id!==id);return w;});delete sessionIds[kind];
+    }
+    function applySessionRecord(record,kind) {
+      const id=sessionIds[kind];if (!id) return;
+      const session=workbench.controller.getWorkspace().sessions.find(s=>s.id===id);
+      record.sessionId=id;
+      record.timeSegments=sessionSnapshot(kind).draft.segments;
+      record.hours=segmentHours(record.timeSegments);
+      if(session){record.workDate=session.draft.originDate;record.startTime=session.draft.originTime;record.endTime=timeString(new Date(record.timeSegments.at(-1).end));}
+      delete sessionIds[kind];delete sessionRuns[kind];
+    }
+    async function checkpointSessions() {
+      if (!workbench.isDirectory() || checkpointBusy || workbench.isPending() || !Object.keys(sessionIds).length) return;
+      checkpointBusy=true;
+      const snapshots=Object.fromEntries(Object.entries(sessionIds).map(([kind,id])=>[id,sessionSnapshot(kind)]));
+      try {await workbench.controller.commit(w=>{for(const s of w.sessions)if(snapshots[s.id]){Object.assign(s,snapshots[s.id]);s.checkpointAt=new Date().toISOString();}return w;});}
+      catch(e){get('storage-detail').textContent='计时检查点未保存：'+e.message;}
+      finally{checkpointBusy=false;}
+    }
+    window.setInterval(checkpointSessions,15000);
+    const recoveryBox=document.createElement('section');recoveryBox.className='session-recovery';get('data-dialog').querySelector('.data-enhancements').append(recoveryBox);
+    function renderSessionRecovery(){
+      recoveryBox.replaceChildren();
+      for(const session of workbench.controller.getWorkspace().sessions.filter(s=>!Object.values(sessionIds).includes(s.id))){
+        const text=document.createElement('p');text.textContent='有待恢复的'+({flow:'心流',meeting:'会议',task:'任务追踪'}[session.kind])+'：'+Math.round(session.elapsedMs/1000)+'秒，关闭期间不计时。';recoveryBox.append(text);
+        const resume=document.createElement('button');resume.textContent='恢复计时';resume.onclick=async()=>{
+          if(flowStartedAt||meetingStartedAt||taskTracking||meetingDraft){toast('请先结束当前计时');return;}
+          if(activeProfileId!==session.profileId)switchProfile(session.profileId);
+          sessionIds[session.kind]=session.id;
+          sessionRuns[session.kind]={start:Date.now(),prior:session.draft.segments || [],restored:true};
+          const started=new Date(Date.now()-session.elapsedMs);
+          if(session.kind==='flow'){flowStartedAt=started;get('flow-project').value=session.draft.project||'';get('flow-category').value=session.draft.category||'项目推进';flowDraftTasks=session.draft.tasks||[];renderDraftTasks('flow');flowTimer=window.setInterval(updateFlowControls,1000);switchFeaturePanel('flow-mode',true);}
+          if(session.kind==='meeting'){meetingStartedAt=started;meetingDraftTasks=session.draft.tasks||[];get('meeting-project').value=session.draft.project||'';get('meeting-dialog-content').value=session.draft.content||'';get('meeting-outcome').value=session.draft.outcome||'';meetingTimer=window.setInterval(updateMeetingControls,1000);updateMeetingControls();}
+          if(session.kind==='task'){taskTracking={project:session.draft.project,startedAt:started};taskTrackingTimer=window.setInterval(updateTaskTrackingControls,1000);renderPendingTasks();}
+          renderSessionRecovery();toast('计时已恢复，仅从上次成功检查点继续。');
+        };
+        const discard=document.createElement('button');discard.textContent='放弃';discard.onclick=async()=>{if(!confirm('放弃此会话？不会生成工作记录。'))return;try{await workbench.controller.commit(w=>{w.sessions=w.sessions.filter(s=>s.id!==session.id);return w;});renderSessionRecovery();}catch(e){toast('放弃未保存：'+e.message);}};recoveryBox.append(resume,discard);
+      }
+    }
+    renderSessionRecovery();
+    if(workbench.controller.getWorkspace().sessions.length){dataDialog.showModal();toast('发现上次计时检查点，请恢复或放弃。');}

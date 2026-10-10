@@ -10,7 +10,7 @@
   <header>
     <div class="topbar">
       <div class="brand"><span class="logo">✦</span><div><strong>节拍 · 工作台</strong><small>把忙碌变成可复盘的成果</small></div></div>
-      <div class="top-actions"><button class="outline open-browser-workspace" id="open-browser-workspace" type="button" hidden>在浏览器中打开</button><button class="user-chip" id="open-data-dialog" type="button"><span>当前用户</span><strong id="current-user-name">我的工作台</strong><span>⌄</span></button><span class="sync" id="storage-mode-status">独立浏览器模式 · 数据仅保存于当前浏览器</span></div>
+      <div class="top-actions"><button class="outline open-browser-workspace" id="open-browser-workspace" type="button" hidden>在浏览器中打开</button><button class="user-chip" id="open-data-dialog" type="button"><span id="current-user-avatar" class="avatar avatar-top" aria-hidden="true"></span><span>当前用户</span><strong id="current-user-name">我的工作台</strong><span>⌄</span></button><span class="sync" id="storage-mode-status">独立浏览器模式 · 数据仅保存于当前浏览器</span></div>
     </div>
   </header>
   <nav class="main-nav" aria-label="功能菜单"><div class="nav-inner"><button class="nav-button flow-trigger" id="open-flow-mode" type="button" data-target="flow-mode" aria-controls="flow-mode"><span class="nav-logo-mark" aria-hidden="true">✦</span><span>心流模式</span></button><div class="nav-menu" data-menu="work"><button class="nav-button active" type="button" data-target="work-entry" aria-controls="work-entry" aria-haspopup="true" aria-expanded="false">工作录入</button><div class="nav-dropdown" aria-label="工作录入选项"><button class="nav-option active" type="button" data-target="work-entry"><span>快速录入</span><small>登记一项工作并自动生成总结</small></button><button class="nav-option" type="button" data-target="work-backfill"><span>工作补录</span><small>为此前未录入的日期段补齐工时</small></button></div></div><div class="nav-menu" data-menu="summary"><button class="nav-button" type="button" data-target="period-summary" data-summary-mode="week" aria-controls="period-summary" aria-haspopup="true" aria-expanded="false">工作总结</button><div class="nav-dropdown" aria-label="工作总结选项"><button class="nav-option" type="button" data-target="daily-summary"><span>本日工作报告</span><small>按日期查看当天工作内容与日报</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="week"><span>周度</span><small>自动整理本周工作进展与计划</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="month"><span>月度</span><small>按月回顾项目投入和阶段成果</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="year"><span>年度</span><small>汇总全年项目成果和工作投入</small></button></div></div><button class="nav-button" type="button" data-target="task-center" aria-controls="task-center">任务清单</button><div class="nav-menu" data-menu="records"><button class="nav-button" type="button" data-target="work-records" aria-controls="work-records" aria-haspopup="true" aria-expanded="false">工作记录</button><div class="nav-dropdown" aria-label="工作记录选项"><button class="nav-option" type="button" data-target="work-records"><span>最近工作</span><small>查看、编辑或删除已录入的工作记录</small></button><button class="nav-option" type="button" data-target="dashboard"><span>数据可视化</span><small>查看项目占比和周、月、年度分析图</small></button></div></div></div></nav>
@@ -91,9 +91,10 @@
       <h2>用户与数据管理</h2>
       <p>每位使用者都有独立工作区。导入备份时会恢复为新的独立用户，不会把不同人的记录混在一起。</p>
       <div class="user-list" id="user-list"></div>
-      <label>新建使用者<input id="new-profile-name" maxlength="30" placeholder="例如：张三 / 设计组"></label>
-      <button class="primary" id="create-profile" type="button">新建独立工作区</button>
-      <div class="data-actions"><button class="secondary" id="export-data" type="button">导出当前用户备份</button><label class="import-data">导入备份到独立用户<input id="import-data" type="file" accept=".json,application/json"></label></div>
+      <h3>新建独立用户</h3><p>创建空白工作区，不会修改当前用户资料。</p>
+      <label>新用户名称<input id="new-profile-name" maxlength="30" placeholder="例如：张三 / 设计组"></label>
+      <button class="primary" id="create-profile" type="button">新建独立用户</button>
+      <div class="data-actions"><button class="secondary" id="export-data" type="button">导出当前用户备份</button><label class="import-data">导入备份到新用户<input id="import-data" type="file" accept=".json,application/json"></label></div>
       <div class="dialog-actions"><button class="dialog-cancel" id="close-data-dialog" type="button">完成</button></div>
     </div>
   </dialog>

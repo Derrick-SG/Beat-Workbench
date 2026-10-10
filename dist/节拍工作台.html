@@ -841,13 +841,43 @@
       body::after, .main-nav, .toast { display: none !important; }
       input, select, textarea { color: #000; background: #fff; }
     }
-  </style>
+
+/* Data management additions: project avatar sizes and keyboard targets. */
+#data-dialog { width:min(520px,calc(100% - 28px)); max-height:calc(100dvh - 28px); overflow:auto; }
+.data-enhancements section { padding:18px 0 24px; border-bottom:1px solid #dce3ed; margin-bottom:24px; }
+.data-enhancements h3 { margin:0 0 14px; font-size:16px; }
+.avatar { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; border-radius:50%; overflow:hidden; background:#edf0f4; color:#667787; font-size:24px; }
+.avatar img { width:100%;height:100%;object-fit:cover; }
+.avatar-top { width:28px;height:28px; }
+.avatar-list { width:36px;height:36px; }
+.avatar-preview { width:72px;height:72px;font-size:48px; }
+.profile-editor { display:flex;gap:16px;align-items:center; }
+.profile-editor label { flex:1;min-width:0; }
+.profile-actions,.storage-actions { display:flex;gap:8px;flex-wrap:wrap;margin:12px 0; }
+.data-enhancements button,.profile-actions label,.session-recovery button { min-height:44px;min-width:44px;border:1px solid #cbd9e6;border-radius:10px;padding:8px 12px;cursor:pointer;background:#eef6ff;color:#1262a5; }
+.data-enhancements .primary { color:white;background:#0071e3; }
+.data-enhancements button:disabled,.profile-actions label:has(input:disabled) { opacity:.5;cursor:default; }
+.data-enhancements button:focus-visible,.profile-actions label:focus-within { outline:3px solid #0071e3;outline-offset:3px; }
+#profile-error { color:#a13122;min-height:1.5em; }
+#storage-detail { overflow-wrap:anywhere; }
+.user-chip { min-height:44px; }
+.storage-startup { margin:16px;padding:20px;background:#fff1df;border:1px solid #d7a873;border-radius:14px;position:relative;z-index:30; }
+.storage-startup button { min-height:44px;margin:5px; }
+.session-recovery { background:#f4f8ff;padding:12px;border-radius:10px; }
+.person-placeholder { position:relative;display:block;width:60%;height:66%; }
+.person-placeholder::before { content:'';position:absolute;left:30%;top:6%;width:40%;height:38%;border-radius:50%;background:#748597; }
+.person-placeholder::after { content:'';position:absolute;left:10%;bottom:3%;width:80%;height:46%;border-radius:50% 50% 25% 25%;background:#748597; }
+.data-enhancements p { margin:8px 0!important;line-height:1.6; }
+.data-enhancements [hidden] { display:none!important; }
+.draft-choice button { min-height:44px;padding:8px 12px;margin:6px;border-radius:10px;border:1px solid #bdcee1; }
+.user-row>div { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+</style>
 </head>
 <body>
   <header>
     <div class="topbar">
       <div class="brand"><span class="logo">✦</span><div><strong>节拍 · 工作台</strong><small>把忙碌变成可复盘的成果</small></div></div>
-      <div class="top-actions"><button class="outline open-browser-workspace" id="open-browser-workspace" type="button" hidden>在浏览器中打开</button><button class="user-chip" id="open-data-dialog" type="button"><span>当前用户</span><strong id="current-user-name">我的工作台</strong><span>⌄</span></button><span class="sync" id="storage-mode-status">独立浏览器模式 · 数据仅保存于当前浏览器</span></div>
+      <div class="top-actions"><button class="outline open-browser-workspace" id="open-browser-workspace" type="button" hidden>在浏览器中打开</button><button class="user-chip" id="open-data-dialog" type="button"><span id="current-user-avatar" class="avatar avatar-top" aria-hidden="true"></span><span>当前用户</span><strong id="current-user-name">我的工作台</strong><span>⌄</span></button><span class="sync" id="storage-mode-status">独立浏览器模式 · 数据仅保存于当前浏览器</span></div>
     </div>
   </header>
   <nav class="main-nav" aria-label="功能菜单"><div class="nav-inner"><button class="nav-button flow-trigger" id="open-flow-mode" type="button" data-target="flow-mode" aria-controls="flow-mode"><span class="nav-logo-mark" aria-hidden="true">✦</span><span>心流模式</span></button><div class="nav-menu" data-menu="work"><button class="nav-button active" type="button" data-target="work-entry" aria-controls="work-entry" aria-haspopup="true" aria-expanded="false">工作录入</button><div class="nav-dropdown" aria-label="工作录入选项"><button class="nav-option active" type="button" data-target="work-entry"><span>快速录入</span><small>登记一项工作并自动生成总结</small></button><button class="nav-option" type="button" data-target="work-backfill"><span>工作补录</span><small>为此前未录入的日期段补齐工时</small></button></div></div><div class="nav-menu" data-menu="summary"><button class="nav-button" type="button" data-target="period-summary" data-summary-mode="week" aria-controls="period-summary" aria-haspopup="true" aria-expanded="false">工作总结</button><div class="nav-dropdown" aria-label="工作总结选项"><button class="nav-option" type="button" data-target="daily-summary"><span>本日工作报告</span><small>按日期查看当天工作内容与日报</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="week"><span>周度</span><small>自动整理本周工作进展与计划</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="month"><span>月度</span><small>按月回顾项目投入和阶段成果</small></button><button class="nav-option" type="button" data-target="period-summary" data-summary-mode="year"><span>年度</span><small>汇总全年项目成果和工作投入</small></button></div></div><button class="nav-button" type="button" data-target="task-center" aria-controls="task-center">任务清单</button><div class="nav-menu" data-menu="records"><button class="nav-button" type="button" data-target="work-records" aria-controls="work-records" aria-haspopup="true" aria-expanded="false">工作记录</button><div class="nav-dropdown" aria-label="工作记录选项"><button class="nav-option" type="button" data-target="work-records"><span>最近工作</span><small>查看、编辑或删除已录入的工作记录</small></button><button class="nav-option" type="button" data-target="dashboard"><span>数据可视化</span><small>查看项目占比和周、月、年度分析图</small></button></div></div></div></nav>
@@ -928,9 +958,10 @@
       <h2>用户与数据管理</h2>
       <p>每位使用者都有独立工作区。导入备份时会恢复为新的独立用户，不会把不同人的记录混在一起。</p>
       <div class="user-list" id="user-list"></div>
-      <label>新建使用者<input id="new-profile-name" maxlength="30" placeholder="例如：张三 / 设计组"></label>
-      <button class="primary" id="create-profile" type="button">新建独立工作区</button>
-      <div class="data-actions"><button class="secondary" id="export-data" type="button">导出当前用户备份</button><label class="import-data">导入备份到独立用户<input id="import-data" type="file" accept=".json,application/json"></label></div>
+      <h3>新建独立用户</h3><p>创建空白工作区，不会修改当前用户资料。</p>
+      <label>新用户名称<input id="new-profile-name" maxlength="30" placeholder="例如：张三 / 设计组"></label>
+      <button class="primary" id="create-profile" type="button">新建独立用户</button>
+      <div class="data-actions"><button class="secondary" id="export-data" type="button">导出当前用户备份</button><label class="import-data">导入备份到新用户<input id="import-data" type="file" accept=".json,application/json"></label></div>
       <div class="dialog-actions"><button class="dialog-cancel" id="close-data-dialog" type="button">完成</button></div>
     </div>
   </dialog>
@@ -945,28 +976,565 @@
       <div class="dialog-actions"><button class="dialog-cancel" id="cancel-meeting-record" type="button">不记录本次会议</button><button class="primary" type="submit">保存会议记录</button></div>
     </form>
   </dialog>
-  <script type="module">
-    function useStandaloneStorage() {
-      const memoryData = new Map();
-      const memoryStorage = {
-        getItem(key) { return memoryData.has(String(key)) ? memoryData.get(String(key)) : null; },
-        setItem(key, value) { memoryData.set(String(key), String(value)); },
-        removeItem(key) { memoryData.delete(String(key)); }
-      };
-      let storage = memoryStorage;
-      let status = '临时浏览器模式 · 浏览器禁止本地存储，关闭页面后数据会清除';
-      try {
-        const local = window.localStorage;
-        const probeKey = '__jiepai_storage_probe__';
-        local.setItem(probeKey, '1');
-        local.removeItem(probeKey);
-        storage = local;
-        status = '独立浏览器模式 · 数据仅保存于当前浏览器';
-      } catch (error) {
-        // file:// pages may be denied localStorage; memory mode keeps every feature usable.
+  <script type="module">const __modules = {};
+__modules["src/model/time.js"]=await (async()=>{
+
+function segmentHours(segments){return segments.reduce((n,s)=>n+Math.max(0,s.end-s.start),0)/3600000;}
+function recordsInRange(items,range=null){
+  const output=[];
+  for(const item of items){
+    if(!Array.isArray(item.timeSegments)||item._ranges){if(!range||(item.workDate>=range.start&&item.workDate<=range.end))output.push(item);continue;}
+    const days=new Map();
+    for(const segment of item.timeSegments){
+      if(!Number.isFinite(segment.start)||!Number.isFinite(segment.end)||segment.end<segment.start)throw Error('工作分段时间无效');
+      for(let cursor=segment.start;cursor<segment.end;){
+        const d=new Date(cursor),midnight=new Date(d.getFullYear(),d.getMonth(),d.getDate()),next=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1).getTime();
+        const end=Math.min(next,segment.end),key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        if(!range||(key>=range.start&&key<=range.end)){if(!days.has(key))days.set(key,[]);days.get(key).push({start:(cursor-midnight.getTime())/60000,end:(end-midnight.getTime())/60000,project:item.project||'未归类项目'});}
+        cursor=end;
       }
-      window.appStorage = storage;
-      document.getElementById('storage-mode-status').textContent = status;
+    }
+    for(const [workDate,ranges] of days)output.push({...item,workDate,_ranges:ranges,hours:ranges.reduce((n,r)=>n+r.end-r.start,0)/60});
+  }
+  return output;
+}
+
+return {segmentHours,recordsInRange};
+})();
+__modules["src/model/workspace.js"]=await (async()=>{
+
+function uid() { return globalThis.crypto?.randomUUID?.() || 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+function storageError(code, message) { return Object.assign(new Error(message), {code}); }
+function newWorkspace() {
+  const id=uid();
+  return {format:'Beat-Workbench/workspace',schemaVersion:1,workspaceId:uid(),revision:0,updatedAt:new Date().toISOString(),activeProfileId:id,profiles:[{id,name:'我的工作台',avatar:null,records:[],tasks:[]}],sessions:[],settledSessionIds:[]};
+}
+function validateAvatarShape(avatar) {
+  if (avatar == null) return null;
+  if (!['image/png','image/jpeg'].includes(avatar.mime) || typeof avatar.dataUrl!=='string' || !avatar.dataUrl.startsWith('data:'+avatar.mime+';base64,') || avatar.dataUrl.length>Math.ceil(200*1024/3)*4+40) throw storageError('invalid','头像数据无效或超过200 KB');
+  const raw=avatar.dataUrl.split(',')[1];
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) throw storageError('invalid','头像编码无效');
+  const decoded=atob(raw);
+  if(avatar.mime==='image/png'?!decoded.startsWith('\x89PNG\r\n\x1a\n'):!decoded.startsWith('\xff\xd8\xff'))throw storageError('invalid','头像不是有效图片字节');
+  return avatar;
+}
+function validateWorkspace(value) {
+  if (!value || value.format!=='Beat-Workbench/workspace') throw storageError('invalid','不是工作台目录数据');
+  if (value.schemaVersion!==1) throw storageError('unsupported','不支持此目录数据版本');
+  if (typeof value.workspaceId!=='string' || !value.workspaceId || !Number.isSafeInteger(value.revision) || value.revision<0 || !Number.isFinite(Date.parse(value.updatedAt)) || !Array.isArray(value.profiles) || !value.profiles.length || !Array.isArray(value.sessions) || !Array.isArray(value.settledSessionIds)) throw storageError('invalid','工作台结构无效');
+  const ids=new Set(), names=new Set();
+  for (const p of value.profiles) {
+    if (!p || typeof p.id!=='string' || !p.id || ids.has(p.id) || typeof p.name!=='string' || !p.name.trim() || p.name.length>30 || names.has(p.name) || !Array.isArray(p.records) || !Array.isArray(p.tasks)) throw storageError('invalid','工作区资料无效或重复');
+    validateAvatarShape(p.avatar); ids.add(p.id); names.add(p.name);
+    const recordIds=new Set(),taskIds=new Set();
+    for(const r of p.records){
+      if(!r || !Number.isSafeInteger(r.id) || recordIds.has(r.id) || typeof r.workDate!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.workDate) || !Number.isFinite(Date.parse(r.workDate)) || new Date(r.workDate+'T12:00:00Z').toISOString().slice(0,10)!==r.workDate || typeof r.title!=='string' || typeof r.project!=='string' || !Number.isFinite(r.hours) || r.hours<=0 || r.hours>24 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.endTime))throw storageError('invalid','记录ID、日期、时段或工时无效');
+      recordIds.add(r.id);
+      if(Object.prototype.hasOwnProperty.call(r,'_ranges'))throw storageError('invalid','记录含保留的统计字段');
+    }
+    for(const t of p.tasks){if(!t||typeof t.id!=='string'||taskIds.has(t.id)||typeof t.text!=='string'||typeof t.project!=='string'||typeof t.completed!=='boolean')throw storageError('invalid','任务数据无效');taskIds.add(t.id);}
+    for(const r of p.records)if(r.timeSegments && (!Array.isArray(r.timeSegments)||r.timeSegments.length>10000||r.timeSegments.some(s=>!Number.isFinite(s.start)||!Number.isFinite(s.end)||s.end<s.start||s.end-s.start>86400000)))throw storageError('invalid','工作分段无效');
+  }
+  if (!ids.has(value.activeProfileId)) throw storageError('invalid','当前工作区不存在');
+  const sessions=new Set();
+  for (const s of value.sessions) {
+    if (!s || typeof s.id!=='string' || sessions.has(s.id) || s.workspaceId!==value.workspaceId || !ids.has(s.profileId) || !['flow','meeting','task'].includes(s.kind) || !['running','paused'].includes(s.status) || !Number.isFinite(s.elapsedMs) || s.elapsedMs<0 || !Number.isFinite(Date.parse(s.checkpointAt)) || !s.draft || typeof s.draft!=='object') throw storageError('invalid','计时恢复数据无效');
+    if(typeof s.draft.project!=='string'||typeof s.draft.originDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s.draft.originDate)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.draft.originTime)||!Array.isArray(s.draft.segments)||s.draft.segments.some(t=>!Number.isFinite(t.start)||!Number.isFinite(t.end)||t.end<t.start)||(s.draft.tasks&&(!Array.isArray(s.draft.tasks)||s.draft.tasks.some(t=>!t||typeof t.text!=='string'))))throw storageError('invalid','计时草稿或工作分段损坏');
+    sessions.add(s.id);
+  }
+  if (value.settledSessionIds.some(id=>typeof id!=='string') || new Set(value.settledSessionIds).size!==value.settledSessionIds.length) throw storageError('invalid','会话去重数据无效');
+  return structuredClone(value);
+}
+function readLegacyBrowser(storage) {
+  const read=(key,fallback)=>{const raw=storage.getItem(key); return raw===null?fallback:JSON.parse(raw);};
+  const profiles=read('jiepai-user-profiles-v1',null);
+  if (!profiles) {
+    const records=read('jiepai-work-logs-v1',null);
+    if (records===null) return null;
+    if (!Array.isArray(records)) throw storageError('invalid','旧浏览器记录损坏');
+    const w=newWorkspace(); w.profiles[0].records=records; return validateWorkspace(w);
+  }
+  if (!Array.isArray(profiles) || !profiles.length) throw storageError('invalid','旧浏览器用户数据损坏');
+  const w=newWorkspace();
+  w.profiles=profiles.map(p=>({...p,avatar:p.avatar||null,records:read('jiepai-work-logs-v2:'+p.id,[]),tasks:read('jiepai-project-tasks-v1:'+p.id,[])}));
+  w.activeProfileId=storage.getItem('jiepai-active-profile-v1') || profiles[0].id;
+  return validateWorkspace(w);
+}
+function parseProfileBackup(value) {
+  if (Array.isArray(value)) return {name:'恢复的工作台',avatar:null,records:value,tasks:[]};
+  if (!value || value.format || !Array.isArray(value.records) || ![undefined,3,4].includes(value.version)) throw storageError('invalid','备份格式或版本不支持');
+  const avatar=value.version===4?validateAvatarShape(value.profile?.avatar):null;
+  return {name:String(value.profile?.name||'恢复的工作台'),avatar,records:value.records,tasks:Array.isArray(value.tasks)?value.tasks:[]};
+}
+function makeProfileBackup(profile) {return {app:'节拍工作台',version:4,exportedAt:new Date().toISOString(),profile:{name:profile.name,avatar:profile.avatar||null},records:structuredClone(profile.records),tasks:structuredClone(profile.tasks)};}
+function settleLegacySnapshot(workspace,profiles,activeProfileId){
+  const w=structuredClone(workspace),existing=new Map(w.profiles.flatMap(p=>p.records.filter(r=>r.sessionId).map(r=>[r.sessionId,r.id]))),seen=new Set(),settled=new Set(w.settledSessionIds);
+  w.profiles=structuredClone(profiles).map(p=>({...p,records:p.records.filter(r=>{
+    if(!r.sessionId)return true;
+    if(seen.has(r.sessionId))return false;seen.add(r.sessionId);
+    if(settled.has(r.sessionId)&&existing.get(r.sessionId)!==r.id)return false;
+    settled.add(r.sessionId);return true;
+  })}));
+  w.activeProfileId=activeProfileId;w.settledSessionIds=[...settled];w.sessions=w.sessions.filter(s=>!settled.has(s.id));return w;
+}
+
+return {uid,storageError,newWorkspace,validateAvatarShape,validateWorkspace,readLegacyBrowser,parseProfileBackup,makeProfileBackup,settleLegacySnapshot};
+})();
+__modules["src/storage/settings.js"]=await (async()=>{
+
+function openDatabase(indexedDB=globalThis.indexedDB) {
+  return new Promise((resolve,reject)=>{
+    if(!indexedDB){reject(Error('浏览器不支持 IndexedDB'));return;}
+    const request=indexedDB.open('beat-workbench',1);
+    request.onupgradeneeded=()=>{for(const name of ['workspaces','settings'])if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name);};
+    request.onerror=()=>reject(request.error);
+    request.onblocked=()=>reject(Error('请关闭其他工作台标签后重试'));
+    request.onsuccess=()=>resolve(request.result);
+  });
+}
+async function databaseTransaction(store,mode,action,indexedDB=globalThis.indexedDB) {
+  const db=await openDatabase(indexedDB);
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,mode),objectStore=tx.objectStore(store);let result;
+    tx.oncomplete=()=>{db.close();resolve(result);};
+    tx.onerror=tx.onabort=()=>{db.close();reject(tx.error||Error('浏览器写入失败'));};
+    try{action(objectStore,value=>{result=value;});}catch(e){tx.abort();db.close();reject(e);}
+  });
+}
+function readSourceSettings() {return databaseTransaction('settings','readonly',(s,set)=>{const r=s.get('source');r.onsuccess=()=>set(r.result||{mode:'browser'});});}
+function writeSourceSettings(value) {return databaseTransaction('settings','readwrite',s=>s.put(value,'source'));}
+
+return {openDatabase,databaseTransaction,readSourceSettings,writeSourceSettings};
+})();
+__modules["src/storage/browser.js"]=await (async()=>{
+const { validateWorkspace, readLegacyBrowser, storageError }=__modules["src/model/workspace.js"];
+const { databaseTransaction }=__modules["src/storage/settings.js"];
+
+
+function createBrowserRepository(indexedDB=globalThis.indexedDB,local=globalThis.localStorage) {
+  let backend=null,legacyCache;
+  async function load(){
+    if(backend!== 'local') {
+      try {const value=await databaseTransaction('workspaces','readonly',(s,set)=>{const r=s.get('current');r.onsuccess=()=>set(r.result||null);},indexedDB);backend='idb';if(value)return validateWorkspace(value);}
+      catch(e){if(backend==='idb')throw e;backend='local';}
+    }
+    const raw=local?.getItem('beat-workbench-current-v1');
+    if(raw)return validateWorkspace(JSON.parse(raw));
+    if(legacyCache===undefined)legacyCache=readLegacyBrowser(local);
+    return structuredClone(legacyCache);
+  }
+  async function save(candidate,expectedRevision,options={}) {
+    validateWorkspace(candidate);
+    if(backend==='idb') {
+      await databaseTransaction('workspaces','readwrite',s=>{
+        const request=s.get('current');request.onsuccess=()=>{
+          const prior=request.result;
+          if(!options.replace && ((prior||legacyCache)?.revision??null)!==expectedRevision){s.transaction.abort();return;}
+          if(options.preserve && (prior||options.recovery)){
+            const old=prior||options.recovery,archives=s.get('recovery-list');
+            archives.onsuccess=()=>{const list=archives.result||[];if(!list.some(w=>JSON.stringify(w)===JSON.stringify(old)))list.push(old);s.put(list,'recovery-list');};
+          }
+          s.put(candidate,'current');
+        };
+      },indexedDB);
+    }else{
+      const raw=local.getItem('beat-workbench-current-v1'),prior=raw?JSON.parse(raw):null;
+      if(!options.replace && ((prior||legacyCache)?.revision??null)!==expectedRevision)throw storageError('conflict','浏览器数据已在其他标签修改');
+      if(options.preserve && (prior||options.recovery)){
+        const list=JSON.parse(local.getItem('beat-workbench-recovery-list-v1')||'[]'),old=prior||options.recovery;
+        if(!list.some(w=>JSON.stringify(w)===JSON.stringify(old)))list.push(old);
+        local.setItem('beat-workbench-recovery-list-v1',JSON.stringify(list));
+      }
+      local.setItem('beat-workbench-current-v1',JSON.stringify(candidate));
+    }
+    return {workspaceId:candidate.workspaceId,revision:candidate.revision,savedAt:candidate.updatedAt};
+  }
+  async function recoveries(){
+    const list=backend==='idb'?await databaseTransaction('workspaces','readonly',(s,set)=>{const r=s.get('recovery-list');r.onsuccess=()=>set(r.result||[]);},indexedDB):JSON.parse(local.getItem('beat-workbench-recovery-list-v1')||'[]');
+    return list.map(validateWorkspace);
+  }
+  return {load,save,recoveries,recovery:async()=>(await recoveries())[0]||null,flush:async()=>{},getBackend:()=>backend};
+}
+
+return {createBrowserRepository};
+})();
+__modules["src/storage/directory.js"]=await (async()=>{
+const { validateWorkspace, storageError }=__modules["src/model/workspace.js"];
+
+function detectDirectorySupport() {return !!(globalThis.isSecureContext && globalThis.showDirectoryPicker && globalThis.indexedDB && globalThis.navigator?.locks && location.protocol!=='file:');}
+function pickDirectory() {return globalThis.showDirectoryPicker({mode:'readwrite',id:'beat-workbench'});}
+function queryAccess(handle) {return handle.queryPermission({mode:'readwrite'});}
+async function requestAccess(handle) {return (await handle.requestPermission({mode:'readwrite'}))==='granted';}
+async function read(handle,name) {
+  try {return await (await (await handle.getFileHandle(name)).getFile()).text();}
+  catch(e) {if(e.name==='NotFoundError')return null;throw e;}
+}
+function decode(raw) {
+  try {return validateWorkspace(JSON.parse(raw));} catch(e){throw e.code?e:storageError('invalid','工作台文件为空白或损坏，未作任何覆盖');}
+}
+async function write(handle,name,text) {
+  const stream=await (await handle.getFileHandle(name,{create:true})).createWritable();
+  try {await stream.write(text);await stream.close();}catch(e){try{await stream.abort();}catch{}throw e;}
+}
+async function readPreviousSnapshot(handle) {
+  const raw=await read(handle,'beat-workbench.previous.json');
+  if(raw===null)throw storageError('missing','没有上一份快照');return decode(raw);
+}
+function createDirectoryRepository(handle) {
+  let fingerprint=null, tail=Promise.resolve();
+  async function load(){const raw=await read(handle,'beat-workbench.workspace.json');const w=raw===null?null:decode(raw);fingerprint=raw;return w;}
+  function save(candidate,expectedRevision){
+    const operation=tail.then(async()=>{
+      validateWorkspace(candidate);
+      const raw=await read(handle,'beat-workbench.workspace.json');
+      const prior=raw===null?null:decode(raw);
+      if((prior?.revision??null)!==expectedRevision || raw!==fingerprint)throw storageError('conflict','文件已在其他位置修改，已停止自动保存');
+      if(raw!==null)await write(handle,'beat-workbench.previous.json',raw);
+      const serialized=JSON.stringify(candidate);
+      await write(handle,'beat-workbench.workspace.json',serialized);
+      const verified=await read(handle,'beat-workbench.workspace.json');
+      if(verified!==serialized)throw storageError('io','文件重新读取验证失败');
+      decode(verified); fingerprint=verified;
+      return {workspaceId:candidate.workspaceId,revision:candidate.revision,savedAt:candidate.updatedAt};
+    });
+    tail=operation.catch(()=>{});return operation;
+  }
+  async function restorePrevious(confirmation){
+    if(!confirmation)return;await tail;
+    const candidate=await readPreviousSnapshot(handle),raw=await read(handle,'beat-workbench.workspace.json');
+    if(raw!==null){
+      const existingDamage=await read(handle,'beat-workbench.damaged.json');
+      if(existingDamage===null){
+        const originalFile=await (await handle.getFileHandle('beat-workbench.workspace.json')).getFile();
+        const originalBytes=originalFile.arrayBuffer?new Uint8Array(await originalFile.arrayBuffer()):raw;
+        await write(handle,'beat-workbench.damaged.json',originalBytes);
+      }
+    }
+    candidate.revision++;candidate.updatedAt=new Date().toISOString();const serialized=JSON.stringify(candidate);
+    await write(handle,'beat-workbench.workspace.json',serialized);
+    if(await read(handle,'beat-workbench.workspace.json')!==serialized)throw storageError('io','恢复重新读取验证失败');
+    fingerprint=serialized;return candidate;
+  }
+  return {load,save,restorePrevious,flush:()=>tail,handle};
+}
+
+return {detectDirectorySupport,pickDirectory,queryAccess,requestAccess,readPreviousSnapshot,createDirectoryRepository};
+})();
+__modules["src/storage/controller.js"]=await (async()=>{
+const {validateWorkspace,newWorkspace,storageError}=__modules["src/model/workspace.js"];
+
+function createWorkspaceController({browserRepo,settings,directoryFactory,onState=()=>{},validateLoaded=async w=>w}) {
+  let workspace=null,repo=browserRepo,source={mode:'browser'},tail=Promise.resolve(),generation=0,pending=null;
+  let state={mode:'browser',phase:'resolving',dirty:false};
+  const emit=patch=>{state={...state,...patch};onState({...state});};
+  const clone=()=>workspace?structuredClone(workspace):null;
+  async function initialize(){
+    emit({phase:'loading'});
+    try{
+      source=await settings.read();
+      if(source.mode==='directory'){
+        emit({mode:'directory',directoryName:source.handle.name});repo=directoryFactory(source.handle);
+        workspace=await repo.load();if(!workspace)throw storageError('missing','已选文件夹缺少工作台文件');
+      }else{workspace=await browserRepo.load();if(!workspace)workspace=newWorkspace();}
+      workspace=await validateLoaded(workspace);emit({phase:'ready',lastReadAt:new Date().toISOString(),error:null});
+    }catch(e){workspace=null;emit({phase:'reconnect',error:e.message});}
+  }
+  function commit(update){
+    const captured=generation;
+    const operation=tail.then(async()=>{
+      if(captured!==generation || !workspace || pending || ['reconnect','conflict'].includes(state.phase))throw storageError('conflict','数据来源已变化、尚未连接或存在待重试修改');
+      const candidate=validateWorkspace(update(clone()));candidate.revision=workspace.revision+1;candidate.updatedAt=new Date().toISOString();pending=candidate;
+      emit({phase:'saving',dirty:true,error:null});
+      try{
+        const current=await repo.load();
+        if(current && (current.workspaceId!==workspace.workspaceId || current.revision!==workspace.revision || JSON.stringify(current)!==JSON.stringify(workspace)))throw storageError('conflict','数据已在其他位置修改，已停止自动保存');
+        const receipt=await repo.save(candidate,current?.revision??null);
+        workspace=candidate;pending=null;emit({phase:'ready',dirty:false,lastSavedAt:receipt.savedAt,error:null});return receipt;
+      }catch(e){emit({phase:e.code==='conflict'?'conflict':'error',dirty:true,error:e.message});throw e;}
+    });tail=operation.catch(()=>{});return operation;
+  }
+  async function previewDirectory(handle){
+    await tail;const target=directoryFactory(handle),raw=await target.load(),value=raw?await validateLoaded(raw):null;
+    return {handle,repo:target,kind:value?'existing':'empty',workspace:value,fingerprint:JSON.stringify(raw),summary:value?summary(value):summary(workspace)};
+  }
+  async function migrateDirectory(preview,confirmation){return activateDirectory(preview,confirmation,true);}
+  async function activateDirectory(preview,confirmation,migrate=false){
+    if(!confirmation)return;await tail;
+    if(pending)throw Error('请先重试保存或导出待保存副本');
+    if(migrate && source.mode==='directory' && source.handle.isSameEntry && await source.handle.isSameEntry(preview.handle))return;
+    const fresh=await preview.repo.load();
+    if(JSON.stringify(fresh)!==preview.fingerprint)throw storageError('conflict',migrate&&fresh?'目标文件夹已出现工作台数据，迁移未执行':'文件夹数据已变化，请重新选择并确认摘要');
+    if(migrate && fresh)throw storageError('occupied','此文件夹已有工作台数据，未迁移、合并或覆盖。请选择新的空文件夹。');
+    let next=fresh?await validateLoaded(fresh):null;
+    const originalState={...state};
+    try{
+      if(!next){next=clone();if(!next)throw Error('没有可迁移的数据');if(migrate)emit({phase:'migrating',error:null});await preview.repo.save(next,null);if(migrate)emit({phase:'verifying'});const check=await preview.repo.load();if(JSON.stringify(check)!==JSON.stringify(next))throw Error('迁移重新读取验证失败');}
+      await settings.write({mode:'directory',handle:preview.handle});
+    }catch(e){if(migrate){emit({...originalState,error:'迁移未完成，目标可能已生成副本，尚未切换。请重新检查目标或导出当前副本。'+e.message});throw Error(state.error);}throw e;}
+    generation++;source={mode:'directory',handle:preview.handle};repo=preview.repo;workspace=next;pending=null;emit({mode:'directory',directoryName:preview.handle.name,phase:'ready',dirty:false,lastReadAt:new Date().toISOString(),error:null});
+  }
+  async function returnToBrowser(confirmation){
+    if(!confirmation)return;await tail;if(pending)throw Error('请先重试保存或导出待保存副本');
+    const prior=await browserRepo.load();
+    await browserRepo.save(clone(),prior?.revision??null,{replace:true,preserve:true,recovery:prior});
+    await settings.write({mode:'browser'});generation++;repo=browserRepo;source={mode:'browser'};emit({mode:'browser',directoryName:null,phase:'ready',dirty:false,lastSavedAt:workspace.updatedAt,error:null});
+  }
+  async function useOriginalBrowserData(confirmation,create=false){
+    if(!confirmation)return;await tail;let value=await browserRepo.load();
+    if(!value && !create)throw Error('没有可读取的浏览器副本，请明确创建工作区或导入备份');
+    if(!value){value=newWorkspace();await browserRepo.save(value,null);}
+    value=await validateLoaded(value);
+    await settings.write({mode:'browser'});generation++;workspace=value;repo=browserRepo;source={mode:'browser'};pending=null;emit({mode:'browser',directoryName:null,phase:'ready',dirty:false,lastReadAt:new Date().toISOString(),error:null});
+  }
+  async function retry(){
+    if(!pending){await initialize();return;}
+    const candidate=structuredClone(pending),current=await repo.load();
+    if(current && JSON.stringify(current)===JSON.stringify(candidate)){workspace=current;pending=null;emit({phase:'ready',dirty:false,error:null,lastSavedAt:current.updatedAt});return;}
+    if(current && (current.revision!==workspace.revision || JSON.stringify(current)!==JSON.stringify(workspace)))throw storageError('conflict','外部数据不同，请导出副本后重新加载');
+    await repo.save(candidate,current?.revision??null);workspace=candidate;pending=null;emit({phase:'ready',dirty:false,error:null,lastSavedAt:candidate.updatedAt});
+  }
+  return {initialize,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>tail,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
+}
+function summary(w){return w?`${w.profiles.length} 个工作区 / ${w.profiles.reduce((n,p)=>n+p.records.length,0)} 条记录`:'无数据';}
+
+return {createWorkspaceController,summary};
+})();
+__modules["src/profile/editor.js"]=await (async()=>{
+
+function validateName(value,profiles,profileId) {
+  const name=String(value).trim();
+  if (!name) throw Error('请输入显示名称');
+  if (name.length>30) throw Error('显示名称不能超过30字符');
+  if (profiles.some(p=>p.id!==profileId && p.name===name)) throw Error('已有同名工作区，请换一个名称');
+  return name;
+}
+async function saveProfileDraft(controller,profileId,draft) {
+  const name=validateName(draft.name,controller.getWorkspace().profiles,profileId);
+  return controller.commit(w=>{
+    const profile=w.profiles.find(p=>p.id===profileId);
+    if (!profile) throw Error('工作区不存在');
+    profile.name=name; profile.avatar=structuredClone(draft.avatar); return w;
+  });
+}
+
+return {validateName,saveProfileDraft};
+})();
+__modules["src/profile/avatar.js"]=await (async()=>{
+const { validateAvatarShape }=__modules["src/model/workspace.js"];
+
+
+async function prepareAvatar(file) {
+  if (file.size>5*1024*1024) throw Error('图片超过5 MB，请选择较小的图片。');
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const png=bytes[0]===137 && bytes[1]===80 && bytes[2]===78 && bytes[3]===71;
+  const jpg=bytes[0]===255 && bytes[1]===216 && bytes[2]===255;
+  const webp=String.fromCharCode(...bytes.slice(0,4))==='RIFF' && String.fromCharCode(...bytes.slice(8,12))==='WEBP';
+  if ((!png&&!jpg&&!webp) || !['image/png','image/jpeg','image/webp'].includes(file.type)) throw Error('请选择有效的 JPEG、PNG 或 WebP 图片。');
+  const url=URL.createObjectURL(file);
+  try {
+    const image=new Image(); image.src=url;
+    try {await image.decode();} catch {throw Error('无法读取此图片，请换一张图片。');}
+    if (image.naturalWidth*image.naturalHeight>16000000) throw Error('图片分辨率过高，请选择不超过1600万像素的图片。');
+    const canvas=document.createElement('canvas'); canvas.width=canvas.height=256;
+    const ctx=canvas.getContext('2d'); ctx.fillStyle='#edf0f4'; ctx.fillRect(0,0,256,256);
+    const side=Math.min(image.naturalWidth,image.naturalHeight);
+    ctx.drawImage(image,(image.naturalWidth-side)/2,(image.naturalHeight-side)/2,side,side,0,0,256,256);
+    for (const quality of [.9,.75,.55]) {
+      const dataUrl=canvas.toDataURL('image/jpeg',quality);
+      if (atob(dataUrl.split(',')[1]).length<=200*1024) return {mime:'image/jpeg',dataUrl};
+    }
+    throw Error('无法生成合适大小的头像，请换一张图片。');
+  } finally {URL.revokeObjectURL(url);}
+}
+async function validateAvatar(avatar) {
+  validateAvatarShape(avatar); if (!avatar) return null;
+  const bytes=Uint8Array.from(atob(avatar.dataUrl.split(',')[1]),x=>x.charCodeAt(0));
+  const blob=new Blob([bytes],{type:avatar.mime});
+  await prepareAvatar(blob);
+  const image=new Image(),url=URL.createObjectURL(blob);
+  try{image.src=url;await image.decode();if(image.naturalWidth!==256||image.naturalHeight!==256)throw Error('备份头像必须为256×256缩略图');}finally{URL.revokeObjectURL(url);}
+  return structuredClone(avatar);
+}
+
+return {prepareAvatar,validateAvatar};
+})();
+__modules["src/bootstrap.js"]=await (async()=>{
+const {createBrowserRepository}=__modules["src/storage/browser.js"];
+const {readSourceSettings,writeSourceSettings}=__modules["src/storage/settings.js"];
+const {createDirectoryRepository,detectDirectorySupport,pickDirectory,requestAccess,readPreviousSnapshot}=__modules["src/storage/directory.js"];
+const {createWorkspaceController,summary}=__modules["src/storage/controller.js"];
+const {saveProfileDraft}=__modules["src/profile/editor.js"];
+const {prepareAvatar,validateAvatar}=__modules["src/profile/avatar.js"];
+const {validateWorkspace,newWorkspace,settleLegacySnapshot}=__modules["src/model/workspace.js"];
+
+
+
+
+
+
+
+
+async function initializeWorkbench(){
+  const get=id=>document.getElementById(id);
+  let local;try{local=window.localStorage;}catch{local={getItem:()=>null,setItem:()=>{throw Error('浏览器禁止本地存储');}};}
+  const browserRepo=createBrowserRepository(globalThis.indexedDB,local);
+  let settingsAvailable=true,temporary=false;
+  const settings={read:async()=>{try{return await readSourceSettings();}catch{settingsAvailable=false;return{mode:'browser'};}},write:async v=>{if(settingsAvailable)await writeSourceSettings(v);else if(v.mode!=='browser')throw Error('无法记住文件夹句柄');}};
+  const directoryFactory=handle=>{
+    const repo=createDirectoryRepository(handle),save=repo.save;
+    repo.save=(candidate,revision)=>navigator.locks.request('beat-workbench:'+candidate.workspaceId,{mode:'exclusive',ifAvailable:true},lock=>{if(!lock)throw Error('其他标签正在写入，请稍后重试');return save(candidate,revision);});
+    return repo;
+  };
+  const banner=document.createElement('div');banner.className='storage-startup';banner.setAttribute('role','status');document.body.prepend(banner);
+  let pending=false,legacyDirty=false,refresh=()=>{},timerGuard=()=>false,formGuard=()=>true,toastQueue=[],draft=null,profileBusy=false,sourceBusy=false;
+  const map=new Map();
+  function fillMap(w){map.clear();map.set('jiepai-user-profiles-v1',JSON.stringify(w.profiles.map(({id,name,avatar})=>({id,name,avatar}))));map.set('jiepai-active-profile-v1',w.activeProfileId);for(const p of w.profiles){map.set('jiepai-work-logs-v2:'+p.id,JSON.stringify(p.records));map.set('jiepai-project-tasks-v1:'+p.id,JSON.stringify(p.tasks));}}
+  function stateChanged(state){
+    const message=(state.mode==='directory'?'已连接文件夹 · '+(state.directoryName||''):'当前浏览器')+' · '+({resolving:'正在确定数据来源',loading:'正在读取数据',migrating:'正在迁移当前数据…',verifying:'正在验证目标数据…',ready:temporary?'临时会话 · 关闭后数据会清除':'已就绪',saving:'正在保存…',reconnect:'无法读取已选数据，请重新连接或使用原浏览器数据',error:'最新修改尚未保存',conflict:'外部数据已修改，已停止自动保存'}[state.phase]||state.phase);
+    if(get('storage-mode-status'))get('storage-mode-status').textContent=message;
+    if(get('storage-detail'))get('storage-detail').textContent=message+(state.error?'：'+state.error:'');
+    if(get('storage-time'))get('storage-time').textContent=state.lastSavedAt?'最近成功保存：'+new Date(state.lastSavedAt).toLocaleString():state.lastReadAt?'最近成功读取：'+new Date(state.lastReadAt).toLocaleString():'尚未保存到文件夹';
+    if(get('choose-folder'))get('choose-folder').textContent=state.mode==='directory'?'更换存储文件夹':'选择存储文件夹';
+    const directory=state.mode==='directory',failed=['error','conflict','reconnect'].includes(state.phase);
+    for(const [id,visible] of [['reconnect-folder',directory&&failed],['browser-source',directory],['original-browser',directory&&failed],['retry-save',state.dirty&&state.phase!=='conflict'],['export-workspace',directory||failed],['restore-previous',directory],['reload-folder',directory&&failed]])if(get(id))get(id).hidden=!visible;
+    banner.hidden=!!controller?.getWorkspace();
+    if(!banner.hidden){banner.replaceChildren();const text=document.createElement('p');text.textContent=message+(state.error?'：'+state.error:'');banner.append(text);for(const [label,action] of [['重新连接',reconnect],['使用原浏览器数据',originalBrowser],['恢复上一份目录快照',repairDirectory],['创建临时会话',temporarySession]]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>action().catch(showError);banner.append(b);}}
+  }
+  let controller;
+  controller=createWorkspaceController({browserRepo,settings,directoryFactory,onState:stateChanged,validateLoaded:async w=>{for(const p of w.profiles)await validateAvatar(p.avatar);return w;}});
+  function showError(e){const message=e.message||String(e);if(get('storage-detail'))get('storage-detail').textContent=message;alert(message);}
+  document.querySelector('main').inert=true;
+  await controller.initialize();
+  async function reconnect(){const source=controller.getSource();if(source.handle && !await requestAccess(source.handle))throw Error('文件夹授权未获允许');if(controller.getPending()){await controller.retry();sync();}else{await controller.initialize();if(controller.getWorkspace())sync();}}
+  async function repairDirectory(){
+    const handle=controller.getSource().handle;if(!handle)throw Error('没有已选文件夹');
+    if(!await requestAccess(handle))throw Error('未获文件夹授权');
+    const previous=await readPreviousSnapshot(handle);
+    for(const p of previous.profiles)await validateAvatar(p.avatar);
+    if(!confirm('恢复上一份有效数据？\n'+previous.updatedAt+'\n'+summary(previous)+'\n将保留损坏原件为 beat-workbench.damaged.json，再写入恢复数据；失败可重试。'))return;
+    await navigator.locks.request('beat-workbench:'+previous.workspaceId,{mode:'exclusive',ifAvailable:true},async lock=>{if(!lock)throw Error('其他标签正在写入');await createDirectoryRepository(handle).restorePrevious(true);});
+    await controller.initialize();sync();
+  }
+  async function originalBrowser(){const value=await browserRepo.load();if(!confirm('使用原浏览器数据？\n'+summary(value)+'\n来源时间：'+(value?.updatedAt||'无可读副本')+'\n这可能不是文件夹最新数据；确认后断开记住的文件夹，不修改其内容。'))return;await controller.useOriginalBrowserData(true,!value&&confirm('没有可读副本。明确创建新的浏览器工作区？'));sync();}
+  async function temporarySession(){if(!confirm('创建临时会话？关闭后数据会清除，不会覆盖任何原数据。'))return;const memory={value:newWorkspace(),load:async()=>structuredClone(memory.value),save:async v=>{memory.value=structuredClone(v);return{savedAt:v.updatedAt};}};controller=createWorkspaceController({browserRepo:memory,settings:{read:async()=>({mode:'browser'}),write:async()=>{}},directoryFactory,onState:stateChanged});temporary=true;await controller.initialize();sync();}
+  while(!controller.getWorkspace())await new Promise(resolve=>setTimeout(resolve,100));
+  document.querySelector('main').inert=false;banner.hidden=true;fillMap(controller.getWorkspace());
+  const storage={getItem:key=>map.get(String(key))??null,setItem:(key,value)=>{map.set(String(key),String(value));legacyDirty=true;schedule();},removeItem:key=>{map.delete(key);legacyDirty=true;schedule();}};
+  function sync(){const w=controller.getWorkspace();if(w){fillMap(w);refresh(w);if(draft&&draft.id!==w.activeProfileId)resetDraft();}stateChanged(controller.getState());}
+  let scheduled=false;
+  function schedule(){if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;flushLegacy().catch(()=>{});});}
+  async function flushLegacy(){
+    if(!legacyDirty)return;legacyDirty=false;pending=true;
+    const rawProfiles=JSON.parse(map.get('jiepai-user-profiles-v1'));
+    const capturedProfiles=rawProfiles.map(p=>({...p,avatar:p.avatar||null,records:JSON.parse(map.get('jiepai-work-logs-v2:'+p.id)||'[]'),tasks:JSON.parse(map.get('jiepai-project-tasks-v1:'+p.id)||'[]')}));
+    const active=map.get('jiepai-active-profile-v1');
+    try{
+      await controller.commit(w=>settleLegacySnapshot(w,capturedProfiles,active));
+      sync();for(const message of toastQueue.splice(0)){get('toast').textContent=message;get('toast').classList.add('show');setTimeout(()=>get('toast').classList.remove('show'),2600);}
+    }catch(e){toastQueue=[];sync();get('storage-detail').textContent='最新修改未保存：'+e.message+'。可重试或导出待保存副本。';get('toast').textContent='保存失败，请打开数据管理重试或导出';throw e;}
+    finally{pending=false;}
+  }
+  const section=document.createElement('div');section.className='data-enhancements';section.innerHTML='<section class="profile-section"><h3>编辑当前用户资料</h3><p>修改姓名或头像会更新当前用户，原有工作记录和任务保持归属。</p><p id="current-profile-label"></p><div class="profile-editor"><span class="avatar avatar-preview" id="avatar-preview" aria-hidden="true"></span><label>显示名称<input id="profile-name" maxlength="30"></label></div><div class="profile-actions"><button type="button" id="choose-avatar">选择头像</button><input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" id="remove-avatar">移除头像</button><button type="button" class="primary" id="save-profile">保存当前用户资料</button></div><p class="section-sub">支持 JPEG、PNG、WebP，最大5 MB；将居中裁剪为圆形。</p><p id="profile-error" role="status"></p></section><section class="storage-section"><h3>数据存储位置</h3><p id="storage-detail" role="status"></p><p id="storage-time" class="section-sub"></p><p>可将当前全部工作区迁移至新位置；原位置的数据保留。浏览器可能要求重新授权。</p><p id="storage-support"></p><div class="storage-actions"><button type="button" id="choose-folder">选择存储文件夹</button><button type="button" id="reconnect-folder">重新连接</button><button type="button" id="browser-source">改用浏览器存储</button><button type="button" id="original-browser">使用原浏览器数据</button><button type="button" id="retry-save">重试保存</button><button type="button" id="export-workspace">导出当前副本</button><button type="button" id="restore-previous">查看上一份有效快照</button><button type="button" id="reload-folder">重新加载</button></div></section><h3>工作区与备份</h3>';
+  const dialog=get('data-dialog');dialog.querySelector('.user-list, #user-list').before(section);
+  function avatar(element,value){element.replaceChildren();if(value){const img=document.createElement('img');img.src=value.dataUrl;img.alt='';element.append(img);}else{const person=document.createElement('span');person.className='person-placeholder';person.setAttribute('aria-hidden','true');element.append(person);}}
+  function resetDraft(){const p=controller.getWorkspace().profiles.find(p=>p.id===controller.getWorkspace().activeProfileId);draft={id:p.id,name:p.name,avatar:structuredClone(p.avatar)};get('profile-name').value=p.name;get('current-profile-label').textContent='当前用户：'+p.name;avatar(get('avatar-preview'),draft.avatar);get('profile-error').textContent='';updateDraft();}
+  function changed(){const p=controller.getWorkspace().profiles.find(p=>p.id===draft?.id);return !!p&&(get('profile-name').value!==p.name||JSON.stringify(draft.avatar)!==JSON.stringify(p.avatar));}
+  function updateDraft(){get('save-profile').disabled=profileBusy||!changed();get('remove-avatar').disabled=profileBusy||!draft.avatar;get('profile-name').disabled=profileBusy;get('avatar-file').disabled=profileBusy;get('choose-avatar').disabled=profileBusy;}
+  async function guardDraft(){
+    if(!changed())return true;
+    return new Promise(resolve=>{
+      const choice=document.createElement('dialog');choice.className='draft-choice';const content=document.createElement('div');content.className='dialog-body';
+      const h=document.createElement('h2');h.textContent='资料尚未保存';const p=document.createElement('p');p.textContent='保存后继续，或放弃本次修改。';content.append(h,p);
+      function finish(value){choice.close();choice.remove();resolve(value);}
+      for(const [label,action] of [['继续编辑',async()=>finish(false)],['放弃更改',async()=>{resetDraft();finish(true);}],['保存并继续',async()=>{finish(await saveDraft());}]]){const b=document.createElement('button');b.textContent=label;b.onclick=action;content.append(b);}
+      choice.append(content);document.body.append(choice);choice.addEventListener('cancel',e=>{e.preventDefault();finish(false);});choice.showModal();
+    });
+  }
+  get('profile-name').oninput=updateDraft;
+  get('choose-avatar').onclick=()=>get('avatar-file').click();
+  get('avatar-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;profileBusy=true;updateDraft();get('profile-error').textContent='正在处理头像…';try{draft.avatar=await prepareAvatar(file);avatar(get('avatar-preview'),draft.avatar);get('profile-error').textContent='';}catch(err){get('profile-error').textContent=err.message;}finally{profileBusy=false;e.target.value='';updateDraft();}};
+  get('remove-avatar').onclick=()=>{draft.avatar=null;avatar(get('avatar-preview'),null);updateDraft();};
+  async function saveDraft(){profileBusy=true;updateDraft();get('profile-error').textContent='正在保存…';try{await saveProfileDraft(controller,draft.id,{name:get('profile-name').value,avatar:draft.avatar});sync();resetDraft();get('profile-error').textContent='当前用户资料已更新，原记录和任务已保留';return true;}catch(e){get('profile-error').textContent='资料未保存，请重试。'+e.message;return false;}finally{profileBusy=false;updateDraft();}}
+  get('save-profile').onclick=saveDraft;
+  const supported=detectDirectorySupport()&&settingsAvailable;get('choose-folder').disabled=!supported;get('storage-support').textContent=supported?'支持选择文件夹；记住授权后可在重开时读取。':'当前环境不支持自动文件夹读写，仍可使用浏览器存储和JSON备份。';
+  async function guardSource(){if(timerGuard())throw Error('请先结束心流、会议或任务追踪，再切换数据来源。');if(!await guardDraft()||!formGuard())return false;await flushLegacy();if(controller.getState().dirty)throw Error('请先保存或导出待保存副本');return true;}
+  function folderDecision(title,message,choices){
+    return new Promise(resolve=>{
+      const d=document.createElement('dialog');d.className='directory-choice';
+      const body=document.createElement('div');body.className='dialog-body';const h=document.createElement('h2');h.textContent=title;const p=document.createElement('p');p.textContent=message;p.style.whiteSpace='pre-line';body.append(h,p);
+      function finish(value){d.close();d.remove();resolve(value);}
+      for(const [label,value] of choices){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>finish(value);body.append(b);}
+      d.append(body);document.body.append(d);d.oncancel=e=>{e.preventDefault();finish('cancel');};d.showModal();
+    });
+  }
+  function folderSummary(w){return summary(w)+' / '+w.profiles.reduce((n,p)=>n+p.tasks.length,0)+' 项任务\n最后保存：'+new Date(w.updatedAt).toLocaleString();}
+  async function selectFolder(){
+    if(sourceBusy)return;
+    try{
+      if(!await guardSource())return;
+      sourceBusy=true;
+      while(true){
+        const handle=await pickDirectory(),current=controller.getSource();
+        if(current.mode==='directory' && current.handle.isSameEntry && await current.handle.isSameEntry(handle)){alert('已在使用此文件夹');return;}
+        let preview;
+        try{preview=await controller.previewDirectory(handle);}catch(e){
+          const action=await folderDecision('目标工作台数据无法验证，未迁移或覆盖',e.message,[['取消','cancel'],['选择其他文件夹','other']]);if(action==='other')continue;return;
+        }
+        const w=controller.getWorkspace(),details='当前来源：'+(current.mode==='directory'?current.handle.name:'当前浏览器')+'\n当前：'+folderSummary(w)+'\n当前用户：'+w.profiles.find(p=>p.id===w.activeProfileId).name+'\n目标：'+handle.name;
+        if(preview.workspace){
+          const action=await folderDecision('此文件夹已有工作台数据',details+'\n'+folderSummary(preview.workspace)+'\n无法将当前数据迁移到已有工作台数据的文件夹。可使用目标数据，或选择空文件夹迁移；不会合并或覆盖。', [['取消','cancel'],['选择其他文件夹','other'],['使用目标数据','open']]);
+          if(action==='other')continue;if(action!=='open')return;
+          await controller.activateDirectory(preview,true);sync();resetDraft();return;
+        }
+        const action=await folderDecision('将当前全部数据迁移到此文件夹？',details+'\n包含全部用户名称、头像、记录、任务及工作台恢复数据。成功写入并验证后才切换，原目录文件或浏览器副本保留。',[['取消','cancel'],['迁移并使用此文件夹','migrate']]);
+        if(action!=='migrate')return;
+        await controller.migrateDirectory(preview,true);sync();resetDraft();get('storage-detail').textContent='迁移完成，后续修改将保存到此文件夹';return;
+      }
+    }catch(e){if(e.name!=='AbortError')showError(e);}finally{sourceBusy=false;}
+  }
+  get('choose-folder').onclick=selectFolder;
+  get('browser-source').onclick=async()=>{try{if(!await guardSource())return;const old=await controller.getBrowserSnapshot();if(!confirm('将文件夹数据保存到浏览器？\n当前：'+summary(controller.getWorkspace())+'\n浏览器：'+summary(old)+'\n旧浏览器数据将先保留恢复快照，成功保存后再切换。'))return;await controller.returnToBrowser(true);sync();resetDraft();}catch(e){showError(e);}};
+  get('original-browser').onclick=async()=>{if(timerGuard())return showError(Error('请先结束计时'));if(!await guardDraft()||!formGuard())return;if(controller.getPending()&&!confirm('使用原浏览器数据将放弃当前待保存修改，请先导出当前副本。继续？'))return;originalBrowser().catch(showError);};
+  get('reconnect-folder').onclick=()=>reconnect().catch(showError);
+  get('retry-save').onclick=async()=>{try{await controller.retry();sync();}catch(e){showError(e);}};
+  get('export-workspace').onclick=()=>{const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  get('reload-folder').onclick=async()=>{if(timerGuard()||!await guardDraft())return;if(!confirm('重新加载将放弃未保存修改，请先导出当前副本。继续？'))return;await controller.initialize();sync();};
+  get('restore-previous').onclick=async()=>{try{if(timerGuard())throw Error('请先结束计时');await repairDirectory();resetDraft();}catch(e){showError(e);}};
+  const browserRecovery=document.createElement('button');browserRecovery.type='button';browserRecovery.textContent='恢复原浏览器独立副本';get('restore-previous').after(browserRecovery);
+  browserRecovery.onclick=async()=>{try{if(!await guardSource())return;const values=await browserRepo.recoveries();if(!values.length)throw Error('没有原浏览器恢复副本');
+    const value=await new Promise(resolve=>{const d=document.createElement('dialog'),body=document.createElement('div');body.className='dialog-body';const h=document.createElement('h2');h.textContent='选择原浏览器独立副本';body.append(h);for(const snapshot of values){const b=document.createElement('button');b.textContent=snapshot.updatedAt+' · '+summary(snapshot);b.onclick=()=>{d.close();d.remove();resolve(snapshot);};body.append(b);}const cancel=document.createElement('button');cancel.textContent='取消';cancel.onclick=()=>{d.close();d.remove();resolve(null);};body.append(cancel);d.append(body);document.body.append(d);d.oncancel=e=>{e.preventDefault();cancel.click();};d.showModal();});
+    if(!value||!confirm('恢复此副本？不修改目录，恢复列表仍保留。'))return;for(const p of value.profiles)await validateAvatar(p.avatar);await browserRepo.save(value,null,{replace:true});await controller.useOriginalBrowserData(true);sync();resetDraft();}catch(e){showError(e);}};
+  document.addEventListener('click',event=>{if((pending||profileBusy||sourceBusy||controller.getState().phase==='saving')&&!event.target.closest('#export-workspace,.directory-choice')){event.preventDefault();event.stopImmediatePropagation();}},true);
+  document.addEventListener('submit',event=>{if(pending||profileBusy||sourceBusy||controller.getState().phase==='saving'){event.preventDefault();event.stopImmediatePropagation();}},true);
+  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if(sourceBusy&&!event.target.closest('.directory-choice')){event.preventDefault();event.stopImmediatePropagation();}},true);
+  for(const type of ['click','cancel'])dialog.addEventListener(type,event=>{if(type==='cancel'||event.target.closest('#close-data-dialog,[data-profile-id],#create-profile,.import-data')){
+    if(timerGuard()&&type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')){event.preventDefault();event.stopImmediatePropagation();showError(Error('请先结束计时再切换用户'));return;}
+    if(type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')&&!formGuard()){event.preventDefault();event.stopImmediatePropagation();return;}
+    if(changed()){event.preventDefault();event.stopImmediatePropagation();const target=type==='click'?event.target.closest('button'):null;guardDraft().then(ok=>{if(ok){if(target)target.click();else dialog.close();}});}
+  }},true);
+  get('open-data-dialog').addEventListener('click',resetDraft,true);
+  resetDraft();stateChanged(controller.getState());
+  return {storage,controller,flushLegacy,avatar,sync,resetDraft,isPending:()=>pending||legacyDirty,delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
+}
+
+return {initializeWorkbench};
+})();
+__modules["src/app.js"]=await (async()=>{
+const { recordsInRange, segmentHours }=__modules["src/model/time.js"];
+const { initializeWorkbench }=__modules["src/bootstrap.js"];
+const { parseProfileBackup, makeProfileBackup }=__modules["src/model/workspace.js"];
+const { validateAvatar }=__modules["src/profile/avatar.js"];
+
+
+
+
+const workbench = await initializeWorkbench();
+const sessionIds = {};
+const sessionRuns = {};
+let checkpointBusy = false;
+
+    function useStandaloneStorage() {
+      window.appStorage = workbench.storage;
     }
     useStandaloneStorage();
     const legacyStoreKey = 'jiepai-work-logs-v1';
@@ -1069,17 +1637,20 @@
       const names = profiles.map((item) => item.name);
       if (!names.includes(base)) return base;
       let number = 2;
-      while (names.includes(base + '（' + number + '）')) number += 1;
-      return base + '（' + number + '）';
+      while (names.includes(base.slice(0,30-String(number).length-2) + '（' + number + '）')) number += 1;
+      return base.slice(0,30-String(number).length-2) + '（' + number + '）';
     }
     function renderProfiles() {
       const active = currentProfile();
       get('current-user-name').textContent = active.name;
+      workbench.avatar(get('current-user-avatar'), active.avatar);
       get('user-list').innerHTML = profiles.map((item) =>
         '<div class="user-row' + (item.id === activeProfileId ? ' active' : '') + '"><div><span>' + escapeHtml(item.name) + '</span><small>' + (item.id === activeProfileId ? '当前使用中' : '独立工作区') + '</small></div>' + (item.id === activeProfileId ? '<small>当前</small>' : '<button class="switch-user" data-profile-id="' + escapeHtml(item.id) + '" type="button">切换</button>') + '</div>'
       ).join('');
+      for (const [index,item] of profiles.entries()) { const target=get('user-list').children[index]?.firstElementChild; if(target){const a=document.createElement('span');a.className='avatar avatar-list';workbench.avatar(a,item.avatar);target.prepend(a);} }
     }
     function switchProfile(id) {
+      if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) { toast('请先结束计时再切换用户。'); return; }
       const target = profiles.find((item) => item.id === id);
       if (!target || target.id === activeProfileId) return;
       resetReportEditors();
@@ -1224,18 +1795,19 @@
       if (taskTrackingTimer) window.clearInterval(taskTrackingTimer);
       taskTrackingTimer = null;
     }
-    function startTaskTracking(project) {
+    async function startTaskTracking(project) {
       const normalizedProject = String(project || '').trim();
       if (!normalizedProject) return;
       if (taskTracking && taskTracking.project === normalizedProject) {
         stopTaskTracking(false);
         return;
       }
-      if (taskTracking) stopTaskTracking(false);
+      if (taskTracking) { stopTaskTracking(false); await workbench.flushLegacy(); }
       taskTracking = { project: normalizedProject, startedAt: new Date() };
       get('project').value = normalizedProject;
       clearTaskTrackingTimer();
       taskTrackingTimer = window.setInterval(updateTaskTrackingControls, 1000);
+      await beginSession('task');
       renderPendingTasks();
       toast('已开始追踪“' + normalizedProject + '”，再次点击“不追踪”即可结束并记录时长。');
     }
@@ -1251,7 +1823,7 @@
         let endTime = timeString(endedAt);
         if (startTime === endTime) endTime = timeAfter(startTime, 1 / 60);
         const remaining = openTasksFor(tracking.project);
-        logs.push({
+        const record = {
           id: Date.now(),
           workDate: dateKey(tracking.startedAt),
           title: (automaticallyCompleted ? '任务追踪完成：' : '任务追踪：') + tracking.project,
@@ -1264,7 +1836,8 @@
           outcome: automaticallyCompleted ? '待完成任务已全部完成。' : '本次追踪结束；仍有 ' + remaining.length + ' 项待完成任务。',
           nextStep: remaining.map((task) => task.text).join('；'),
           meetingContent: '', painPoint: '', painSolution: '', painStatus: '已解决', painResponse: ''
-        });
+        };
+        applySessionRecord(record, 'task'); logs.push(record);
       }
       save();
       toast(automaticallyCompleted ? '该项目待完成任务已全部完成，追踪工作已自动记录。' : '已结束任务追踪，并将本次时长计入工作记录。');
@@ -1333,7 +1906,7 @@
     }
     function selectedLogs() {
       const range = rangeFor(mode, get('anchor-date').value);
-      return logs.filter((item) => item.workDate >= range.start && item.workDate <= range.end).sort((a, b) => a.workDate.localeCompare(b.workDate));
+      return recordsInRange(logs, range).sort((a, b) => a.workDate.localeCompare(b.workDate));
     }
     function minutesFor(time) {
       const match = String(time || '').match(/^(\d{2}):(\d{2})$/);
@@ -1353,11 +1926,11 @@
     }
     function timeStatsFor(items) {
       const itemsByDay = {};
-      items.forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
+      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
       const projectMinutes = {};
       let totalMinutes = 0;
       Object.values(itemsByDay).forEach((dayItems) => {
-        const ranges = dayItems.map(timeRangeFor).filter(Boolean);
+        const ranges = dayItems.flatMap(item => item._ranges || [timeRangeFor(item)]).filter(Boolean);
         if (!ranges.length) return;
         const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
         for (let index = 0; index < markers.length - 1; index += 1) {
@@ -1603,7 +2176,7 @@
     }
     function dashboardSnapshot(currentMode) {
       const range = currentMode === 'day' ? { start: today(), end: today() } : rangeFor(currentMode, today());
-      const items = logs.filter((item) => item.workDate >= range.start && item.workDate <= range.end);
+      const items = recordsInRange(logs, range);
       const timeStats = timeStatsFor(items);
       const plannedItems = items.filter((item) => String(item.nextStep || '').trim());
       const completedItems = items.filter((item) => Number(item.progress) >= 100);
@@ -1643,7 +2216,7 @@
     }
     function renderDailyReport() {
       const selectedDate = get('daily-date').value || today();
-      const items = logs.filter((item) => item.workDate === selectedDate).sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+      const items = recordsInRange(logs, {start:selectedDate,end:selectedDate}).sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
       const report = dailyReportFor(items, selectedDate);
       get('daily-hours-total').textContent = report.total.toFixed(1);
       get('daily-done-total').textContent = report.done;
@@ -1722,6 +2295,7 @@
       renderProfiles();
     }
     function toast(message) {
+      if (workbench.delayToast(message)) return;
       const node = get('toast');
       node.textContent = message;
       node.classList.add('show');
@@ -1742,6 +2316,8 @@
         const hours = importedHours > 0 && importedHours <= 24 ? importedHours : durationHours(startTime, endTime);
         return {
           id,
+          ...(typeof item.sessionId === 'string' ? {sessionId:item.sessionId} : {}),
+          ...(Array.isArray(item.timeSegments) ? {timeSegments:item.timeSegments} : {}),
           workDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.workDate || '')) ? String(item.workDate) : today(),
           title: String(item.title || '未命名工作').slice(0, 200),
           project: String(item.project || '').slice(0, 120),
@@ -1762,28 +2338,27 @@
     }
     function exportBackup() {
       const profile = currentProfile();
-      const backup = {
-        app: '节拍工作台',
-        version: 3,
-        exportedAt: new Date().toISOString(),
-        profile: { name: profile.name },
-        records: logs,
-        tasks
-      };
+      const backup = makeProfileBackup({ ...profile, records: logs, tasks });
       const fileSafeName = profile.name.replace(/[\\/:*?"<>|]/g, '_');
       downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' }), '节拍数据备份-' + fileSafeName + '-' + today() + '.json');
       toast('已导出当前用户备份，可复制到新电脑后导入。');
     }
     function importBackup(file) {
       if (!file) return;
+      const importWorkspaceId = workbench.controller.getWorkspace().workspaceId;
+      const importProfileId = activeProfileId;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const backup = JSON.parse(String(reader.result || ''));
-          const records = normalizeImportedRecords(Array.isArray(backup) ? backup : backup.records);
-          const importedTasks = !Array.isArray(backup) ? normalizeTasks(backup.tasks) : [];
+          const parsed = parseProfileBackup(backup);
+          const avatar = await validateAvatar(parsed.avatar);
+          if (workbench.controller.getWorkspace().workspaceId !== importWorkspaceId || activeProfileId !== importProfileId) throw Error('导入期间数据来源已变化，请重试');
+          if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) throw Error('请先结束计时');
+          const records = normalizeImportedRecords(parsed.records);
+          const importedTasks = normalizeTasks(parsed.tasks);
           const sourceName = !Array.isArray(backup) && backup.profile && backup.profile.name ? backup.profile.name : file.name.replace(/\.json$/i, '');
-          const profile = { id: 'user-' + Date.now() + '-' + Math.random().toString(16).slice(2), name: uniqueProfileName(sourceName) };
+          const profile = { id: 'user-' + Date.now() + '-' + Math.random().toString(16).slice(2), name: uniqueProfileName(sourceName), avatar };
           profiles.push(profile);
           activeProfileId = profile.id;
           logs = records;
@@ -1901,7 +2476,7 @@
       }
       timer.textContent = formatMeetingElapsed(Date.now() - flowStartedAt.getTime());
     }
-    function startFlowMode() {
+    async function startFlowMode() {
       const isNewFlow = !flowStartedAt;
       if (isNewFlow) {
         flowStartedAt = new Date();
@@ -1912,6 +2487,7 @@
         clearFlowTimer();
         flowTimer = window.setInterval(updateFlowControls, 1000);
       }
+      if (isNewFlow) await beginSession('flow');
       updateFlowControls();
       switchFeaturePanel('flow-mode', true);
       if (isNewFlow) toast('心流计时已开始。完成工作时会自动写入工作记录。');
@@ -1950,6 +2526,7 @@
         painStatus: '已解决',
         painResponse: ''
       };
+      applySessionRecord(record, 'flow');
       logs.push(record);
       addPersistentTasks(project, flowDraftTasks.filter((task) => !task.sourceTaskId), '心流模式');
       flowStartedAt = null;
@@ -1975,6 +2552,7 @@
       if (result === 'invalid-duration') toast('本次心流计时异常，请在 24 小时内完成并记录。');
     });
     function completeFlowOnPageExit(event) {
+      if (workbench.isDirectory()) return;
       if (event.type === 'pagehide' && event.persisted === true) return;
       completeFlow({ background: true });
     }
@@ -2064,17 +2642,19 @@
       if (meetingTimer) window.clearInterval(meetingTimer);
       meetingTimer = null;
     }
-    function startMeeting() {
+    async function startMeeting() {
       meetingStartedAt = new Date();
       updateMeetingControls();
       clearMeetingTimer();
       meetingTimer = window.setInterval(updateMeetingControls, 1000);
+      await beginSession('meeting');
       toast('已开始会议计时。结束后补充会议记录即可。');
     }
     function endMeeting() {
       const startedAt = meetingStartedAt;
       const endedAt = new Date();
       meetingStartedAt = null;
+      if(sessionRuns.meeting)sessionRuns.meeting.end=endedAt.getTime();
       clearMeetingTimer();
       updateMeetingControls();
       if (!startedAt) return;
@@ -2084,16 +2664,19 @@
       if (startTime === endTime && elapsedHours < 23.99) endTime = timeAfter(startTime, 1 / 60);
       meetingDraft = { workDate: dateKey(startedAt), startTime, endTime, hours: elapsedHours };
       get('meeting-project').value = (flowStartedAt && get('flow-project').value.trim()) || get('project').value.trim();
-      get('meeting-dialog-content').value = '';
-      get('meeting-outcome').value = '';
-      meetingDraftTasks = [];
+      if (!sessionRuns.meeting?.restored) {
+        get('meeting-dialog-content').value = '';
+        get('meeting-outcome').value = '';
+        meetingDraftTasks = [];
+      }
       renderDraftTasks('meeting');
       get('meeting-time-summary').textContent = '会议时间：' + meetingDraft.workDate + ' ' + startTime + '–' + endTime + '，已自动统计 ' + elapsedHours.toFixed(1) + ' 小时。';
       meetingDialog.showModal();
     }
     get('meeting-toggle').addEventListener('click', () => meetingStartedAt ? endMeeting() : startMeeting());
     get('flow-meeting-toggle').addEventListener('click', () => meetingStartedAt ? endMeeting() : startMeeting());
-    get('cancel-meeting-record').addEventListener('click', () => {
+    get('cancel-meeting-record').addEventListener('click', async () => {
+      await discardSession('meeting');
       meetingDraft = null;
       meetingDialog.close();
       toast('本次会议未写入工作记录。');
@@ -2128,6 +2711,7 @@
         painStatus: '已解决',
         painResponse: ''
       };
+      applySessionRecord(record, 'meeting');
       logs.push(record);
       addPersistentTasks(project, meetingDraftTasks, '快速会议');
       meetingDraft = null;
@@ -2216,6 +2800,7 @@
     });
     get('close-data-dialog').addEventListener('click', () => dataDialog.close());
     get('create-profile').addEventListener('click', () => {
+      if (flowStartedAt || meetingStartedAt || taskTracking || meetingDraft) { toast('请先结束计时再新建用户。'); return; }
       const requestedName = get('new-profile-name').value.trim();
       if (!requestedName) {
         toast('请先填写使用者名称。');
@@ -2549,6 +3134,87 @@
     updateDurationPreview();
     renderProfiles();
     render();
-  </script>
+
+    workbench.bind({
+      refresh(workspace) {
+        profiles = workspace.profiles.map(({id,name,avatar}) => ({id,name,avatar}));
+        activeProfileId = workspace.activeProfileId;
+        const profile = workspace.profiles.find(p => p.id === activeProfileId);
+        logs = profile.records.map(normalizeLog); tasks = normalizeTasks(profile.tasks);
+        render(); renderProfiles();
+        if(document.querySelector('.session-recovery'))renderSessionRecovery();
+      },
+      timerGuard: () => Boolean(flowStartedAt || meetingStartedAt || taskTracking || meetingDraft),
+      formGuard: () => {
+        const form = get('work-form');
+        const dirty = form && [...form.querySelectorAll('input,textarea')].some(x => ['title','outcome','next-step','pain-point'].includes(x.id) && x.value.trim());
+        if (dirty && !confirm('工作表单尚未保存。放弃修改并切换数据来源？')) return false;
+        if (dirty) resetWorkForm(); return true;
+      }
+    });
+
+    function sessionSnapshot(kind) {
+      const started = kind === 'flow' ? flowStartedAt : kind === 'meeting' ? meetingStartedAt : taskTracking?.startedAt;
+      const session = workbench.controller.getWorkspace().sessions.find(s => s.id === sessionIds[kind]);
+      const draft = kind === 'flow' ? {project:get('flow-project').value,category:get('flow-category').value,tasks:flowDraftTasks} : kind === 'meeting' ? {project:get('meeting-project').value || get('project').value,content:get('meeting-dialog-content').value,outcome:get('meeting-outcome').value,tasks:meetingDraftTasks,meetingDraft} : {project:taskTracking?.project || session?.draft.project};
+      const run=sessionRuns[kind];
+      const segments=run ? [...run.prior,{start:run.start,end:run.end || Date.now()}] : session?.draft.segments || [];
+      return {elapsedMs:started ? Math.max(0,Date.now()-started.getTime()) : kind === 'meeting' && meetingDraft ? meetingDraft.hours*3600000 : session?.elapsedMs || 0,draft:{...draft,segments,originDate:session?.draft.originDate || dateKey(started || new Date()),originTime:session?.draft.originTime || timeString(started || new Date())}};
+    }
+    async function beginSession(kind) {
+      if (!workbench.isDirectory()) return;
+      const id = globalThis.crypto?.randomUUID?.() || ('session-'+Date.now()+'-'+Math.random());
+      sessionIds[kind] = id;
+      sessionRuns[kind] = {start:Date.now(),prior:[]};
+      const snapshot = sessionSnapshot(kind);
+      try { await workbench.controller.commit(w => {w.sessions.push({id,workspaceId:w.workspaceId,profileId:activeProfileId,kind,status:'running',checkpointAt:new Date().toISOString(),...snapshot});return w;}); }
+      catch(e) { toast('计时检查点未保存：'+e.message); }
+    }
+    async function discardSession(kind) {
+      const id=sessionIds[kind]; if (!id) return;
+      await workbench.controller.commit(w => {w.sessions=w.sessions.filter(s=>s.id!==id);return w;});delete sessionIds[kind];
+    }
+    function applySessionRecord(record,kind) {
+      const id=sessionIds[kind];if (!id) return;
+      const session=workbench.controller.getWorkspace().sessions.find(s=>s.id===id);
+      record.sessionId=id;
+      record.timeSegments=sessionSnapshot(kind).draft.segments;
+      record.hours=segmentHours(record.timeSegments);
+      if(session){record.workDate=session.draft.originDate;record.startTime=session.draft.originTime;record.endTime=timeString(new Date(record.timeSegments.at(-1).end));}
+      delete sessionIds[kind];delete sessionRuns[kind];
+    }
+    async function checkpointSessions() {
+      if (!workbench.isDirectory() || checkpointBusy || workbench.isPending() || !Object.keys(sessionIds).length) return;
+      checkpointBusy=true;
+      const snapshots=Object.fromEntries(Object.entries(sessionIds).map(([kind,id])=>[id,sessionSnapshot(kind)]));
+      try {await workbench.controller.commit(w=>{for(const s of w.sessions)if(snapshots[s.id]){Object.assign(s,snapshots[s.id]);s.checkpointAt=new Date().toISOString();}return w;});}
+      catch(e){get('storage-detail').textContent='计时检查点未保存：'+e.message;}
+      finally{checkpointBusy=false;}
+    }
+    window.setInterval(checkpointSessions,15000);
+    const recoveryBox=document.createElement('section');recoveryBox.className='session-recovery';get('data-dialog').querySelector('.data-enhancements').append(recoveryBox);
+    function renderSessionRecovery(){
+      recoveryBox.replaceChildren();
+      for(const session of workbench.controller.getWorkspace().sessions.filter(s=>!Object.values(sessionIds).includes(s.id))){
+        const text=document.createElement('p');text.textContent='有待恢复的'+({flow:'心流',meeting:'会议',task:'任务追踪'}[session.kind])+'：'+Math.round(session.elapsedMs/1000)+'秒，关闭期间不计时。';recoveryBox.append(text);
+        const resume=document.createElement('button');resume.textContent='恢复计时';resume.onclick=async()=>{
+          if(flowStartedAt||meetingStartedAt||taskTracking||meetingDraft){toast('请先结束当前计时');return;}
+          if(activeProfileId!==session.profileId)switchProfile(session.profileId);
+          sessionIds[session.kind]=session.id;
+          sessionRuns[session.kind]={start:Date.now(),prior:session.draft.segments || [],restored:true};
+          const started=new Date(Date.now()-session.elapsedMs);
+          if(session.kind==='flow'){flowStartedAt=started;get('flow-project').value=session.draft.project||'';get('flow-category').value=session.draft.category||'项目推进';flowDraftTasks=session.draft.tasks||[];renderDraftTasks('flow');flowTimer=window.setInterval(updateFlowControls,1000);switchFeaturePanel('flow-mode',true);}
+          if(session.kind==='meeting'){meetingStartedAt=started;meetingDraftTasks=session.draft.tasks||[];get('meeting-project').value=session.draft.project||'';get('meeting-dialog-content').value=session.draft.content||'';get('meeting-outcome').value=session.draft.outcome||'';meetingTimer=window.setInterval(updateMeetingControls,1000);updateMeetingControls();}
+          if(session.kind==='task'){taskTracking={project:session.draft.project,startedAt:started};taskTrackingTimer=window.setInterval(updateTaskTrackingControls,1000);renderPendingTasks();}
+          renderSessionRecovery();toast('计时已恢复，仅从上次成功检查点继续。');
+        };
+        const discard=document.createElement('button');discard.textContent='放弃';discard.onclick=async()=>{if(!confirm('放弃此会话？不会生成工作记录。'))return;try{await workbench.controller.commit(w=>{w.sessions=w.sessions.filter(s=>s.id!==session.id);return w;});renderSessionRecovery();}catch(e){toast('放弃未保存：'+e.message);}};recoveryBox.append(resume,discard);
+      }
+    }
+    renderSessionRecovery();
+    if(workbench.controller.getWorkspace().sessions.length){dataDialog.showModal();toast('发现上次计时检查点，请恢复或放弃。');}
+
+return {};
+})();</script>
 </body>
 </html>
