@@ -59,3 +59,13 @@ test('migration settings failure leaves source identity intact and never changes
   await assert.rejects(c.migrateDirectory(await c.previewDirectory({name:'settings-fail'}),true),/目标可能已生成副本/);
   assert.equal(calls,1);assert.equal(c.getSource().mode,'browser');assert.equal(c.getState().mode,'browser');assert.deepEqual(c.getWorkspace(),w);assert.deepEqual(await browser.load(),w);assert.deepEqual(await directory.load(),w);
 });
+
+test('directory migration routes subsequent records to new repository and reopens persisted source',async()=>{
+  const {createWorkspaceController}=await import('../src/storage/controller.js');
+  const original=newWorkspace(),old=repo(original),destination=repo(null);let source={mode:'directory',handle:{name:'old'}};
+  const options={browserRepo:{load:async()=>{throw Error('must not load browser');}},settings:{read:async()=>source,write:async v=>{source=v;}},directoryFactory:handle=>handle.name==='old'?old:destination};
+  const c=createWorkspaceController(options);await c.initialize();await c.migrateDirectory(await c.previewDirectory({name:'new'}),true);
+  const record={id:1,title:'迁移后合成记录',project:'A',workDate:'2026-10-14',hours:1,startTime:'09:00',endTime:'10:00'};
+  await c.commit(w=>{w.profiles[0].records.push(record);return w;});assert.deepEqual(await old.load(),original);assert.deepEqual((await destination.load()).profiles[0].records,[record]);
+  const reopened=createWorkspaceController(options);await reopened.initialize();assert.equal(reopened.getSource().handle.name,'new');assert.deepEqual(reopened.getWorkspace().profiles[0].records,[record]);
+});

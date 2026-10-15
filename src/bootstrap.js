@@ -1,5 +1,5 @@
 import {createBrowserRepository} from './storage/browser.js';
-import {readSourceSettings,writeSourceSettings} from './storage/settings.js';
+import {createSourceSettings} from './storage/settings.js';
 import {createDirectoryRepository,detectDirectorySupport,pickDirectory,requestAccess,readPreviousSnapshot} from './storage/directory.js';
 import {createWorkspaceController,summary} from './storage/controller.js';
 import {saveProfileDraft} from './profile/editor.js';
@@ -11,7 +11,7 @@ export async function initializeWorkbench(){
   let local;try{local=window.localStorage;}catch{local={getItem:()=>null,setItem:()=>{throw Error('浏览器禁止本地存储');}};}
   const browserRepo=createBrowserRepository(globalThis.indexedDB,local);
   let settingsAvailable=true,temporary=false;
-  const settings={read:async()=>{try{return await readSourceSettings();}catch{settingsAvailable=false;return{mode:'browser'};}},write:async v=>{if(settingsAvailable)await writeSourceSettings(v);else if(v.mode!=='browser')throw Error('无法记住文件夹句柄');}};
+  const settings=createSourceSettings({allowBrowserFallback:!globalThis.indexedDB||location.protocol==='file:',onAvailability:available=>{settingsAvailable=available;}});
   const directoryFactory=handle=>{
     const repo=createDirectoryRepository(handle),save=repo.save;
     repo.save=(candidate,revision)=>navigator.locks.request('beat-workbench:'+candidate.workspaceId,{mode:'exclusive',ifAvailable:true},lock=>{if(!lock)throw Error('其他标签正在写入，请稍后重试');return save(candidate,revision);});
@@ -34,6 +34,13 @@ export async function initializeWorkbench(){
   }
   let controller;
   controller=createWorkspaceController({browserRepo,settings,directoryFactory,onState:stateChanged,validateLoaded:async w=>{for(const p of w.profiles)await validateAvatar(p.avatar);return w;}});
+  function protectPageExit(event){
+    const state=controller.getState();
+    if(pending||legacyDirty||profileBusy||sourceBusy||state.dirty||state.phase==='saving'){
+      event.preventDefault();event.returnValue='';
+    }
+  }
+  window.addEventListener('beforeunload',protectPageExit);
   function showError(e){const message=e.message||String(e);if(get('storage-detail'))get('storage-detail').textContent=message;alert(message);}
   document.querySelector('main').inert=true;
   await controller.initialize();
@@ -62,8 +69,8 @@ export async function initializeWorkbench(){
     const active=map.get('jiepai-active-profile-v1');
     try{
       await controller.commit(w=>settleLegacySnapshot(w,capturedProfiles,active));
-      sync();for(const message of toastQueue.splice(0)){get('toast').textContent=message;get('toast').classList.add('show');setTimeout(()=>get('toast').classList.remove('show'),2600);}
-    }catch(e){toastQueue=[];sync();get('storage-detail').textContent='最新修改未保存：'+e.message+'。可重试或导出待保存副本。';get('toast').textContent='保存失败，请打开数据管理重试或导出';throw e;}
+      sync();for(const message of toastQueue.splice(0)){get('toast').textContent=message;get('toast').classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>get('toast').classList.remove('show'),2600);}
+    }catch(e){toastQueue=[];sync();get('storage-detail').textContent='最新修改未保存：'+e.message+'。可重试或导出待保存副本。';get('toast').textContent='保存失败，请打开数据管理重试或导出';clearTimeout(window.toastTimer);get('toast').classList.add('show');throw e;}
     finally{pending=false;}
   }
   const section=document.createElement('div');section.className='data-enhancements';section.innerHTML='<section class="profile-section"><h3>编辑当前用户资料</h3><p>修改姓名或头像会更新当前用户，原有工作记录和任务保持归属。</p><p id="current-profile-label"></p><div class="profile-editor"><span class="avatar avatar-preview" id="avatar-preview" aria-hidden="true"></span><label>显示名称<input id="profile-name" maxlength="30"></label></div><div class="profile-actions"><button type="button" id="choose-avatar">选择头像</button><input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" id="remove-avatar">移除头像</button><button type="button" class="primary" id="save-profile">保存当前用户资料</button></div><p class="section-sub">支持 JPEG、PNG、WebP，最大5 MB；将居中裁剪为圆形。</p><p id="profile-error" role="status"></p></section><section class="storage-section"><h3>数据存储位置</h3><p id="storage-detail" role="status"></p><p id="storage-time" class="section-sub"></p><p>可将当前全部工作区迁移至新位置；原位置的数据保留。浏览器可能要求重新授权。</p><p id="storage-support"></p><div class="storage-actions"><button type="button" id="choose-folder">选择存储文件夹</button><button type="button" id="reconnect-folder">重新连接</button><button type="button" id="browser-source">改用浏览器存储</button><button type="button" id="original-browser">使用原浏览器数据</button><button type="button" id="retry-save">重试保存</button><button type="button" id="export-workspace">导出当前副本</button><button type="button" id="restore-previous">查看上一份有效快照</button><button type="button" id="reload-folder">重新加载</button></div></section><h3>工作区与备份</h3>';
@@ -128,7 +135,7 @@ export async function initializeWorkbench(){
   get('browser-source').onclick=async()=>{try{if(!await guardSource())return;const old=await controller.getBrowserSnapshot();if(!confirm('将文件夹数据保存到浏览器？\n当前：'+summary(controller.getWorkspace())+'\n浏览器：'+summary(old)+'\n旧浏览器数据将先保留恢复快照，成功保存后再切换。'))return;await controller.returnToBrowser(true);sync();resetDraft();}catch(e){showError(e);}};
   get('original-browser').onclick=async()=>{if(timerGuard())return showError(Error('请先结束计时'));if(!await guardDraft()||!formGuard())return;if(controller.getPending()&&!confirm('使用原浏览器数据将放弃当前待保存修改，请先导出当前副本。继续？'))return;originalBrowser().catch(showError);};
   get('reconnect-folder').onclick=()=>reconnect().catch(showError);
-  get('retry-save').onclick=async()=>{try{await controller.retry();sync();}catch(e){showError(e);}};
+  get('retry-save').onclick=async()=>{try{await controller.retry();sync();get('toast').classList.remove('show');}catch(e){showError(e);}};
   get('export-workspace').onclick=()=>{const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   get('reload-folder').onclick=async()=>{if(timerGuard()||!await guardDraft())return;if(!confirm('重新加载将放弃未保存修改，请先导出当前副本。继续？'))return;await controller.initialize();sync();};
   get('restore-previous').onclick=async()=>{try{if(timerGuard())throw Error('请先结束计时');await repairDirectory();resetDraft();}catch(e){showError(e);}};
@@ -136,9 +143,14 @@ export async function initializeWorkbench(){
   browserRecovery.onclick=async()=>{try{if(!await guardSource())return;const values=await browserRepo.recoveries();if(!values.length)throw Error('没有原浏览器恢复副本');
     const value=await new Promise(resolve=>{const d=document.createElement('dialog'),body=document.createElement('div');body.className='dialog-body';const h=document.createElement('h2');h.textContent='选择原浏览器独立副本';body.append(h);for(const snapshot of values){const b=document.createElement('button');b.textContent=snapshot.updatedAt+' · '+summary(snapshot);b.onclick=()=>{d.close();d.remove();resolve(snapshot);};body.append(b);}const cancel=document.createElement('button');cancel.textContent='取消';cancel.onclick=()=>{d.close();d.remove();resolve(null);};body.append(cancel);d.append(body);document.body.append(d);d.oncancel=e=>{e.preventDefault();cancel.click();};d.showModal();});
     if(!value||!confirm('恢复此副本？不修改目录，恢复列表仍保留。'))return;for(const p of value.profiles)await validateAvatar(p.avatar);await browserRepo.save(value,null,{replace:true});await controller.useOriginalBrowserData(true);sync();resetDraft();}catch(e){showError(e);}};
-  document.addEventListener('click',event=>{if((pending||profileBusy||sourceBusy||controller.getState().phase==='saving')&&!event.target.closest('#export-workspace,.directory-choice')){event.preventDefault();event.stopImmediatePropagation();}},true);
-  document.addEventListener('submit',event=>{if(pending||profileBusy||sourceBusy||controller.getState().phase==='saving'){event.preventDefault();event.stopImmediatePropagation();}},true);
-  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if(sourceBusy&&!event.target.closest('.directory-choice')){event.preventDefault();event.stopImmediatePropagation();}},true);
+  function blockWorkspaceMutation(event){
+    const busy=pending||profileBusy||sourceBusy||controller.getState().phase==='saving';
+    const blocked=busy?!event.target.closest('#export-workspace,.directory-choice'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#retry-save,#export-workspace,#reconnect-folder,#original-browser');
+    if(blocked){event.preventDefault();event.stopImmediatePropagation();}
+  }
+  document.addEventListener('click',blockWorkspaceMutation,true);
+  document.addEventListener('submit',blockWorkspaceMutation,true);
+  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if((sourceBusy&&!event.target.closest('.directory-choice'))||(type==='beforeinput'&&controller.getPending())){event.preventDefault();event.stopImmediatePropagation();}},true);
   for(const type of ['click','cancel'])dialog.addEventListener(type,event=>{if(type==='cancel'||event.target.closest('#close-data-dialog,[data-profile-id],#create-profile,.import-data')){
     if(timerGuard()&&type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')){event.preventDefault();event.stopImmediatePropagation();showError(Error('请先结束计时再切换用户'));return;}
     if(type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')&&!formGuard()){event.preventDefault();event.stopImmediatePropagation();return;}

@@ -1,4 +1,4 @@
-import { recordsInRange, segmentHours } from './model/time.js';
+import { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming } from './model/time.js';
 import { initializeWorkbench } from './bootstrap.js';
 import { parseProfileBackup, makeProfileBackup } from './model/workspace.js';
 import { validateAvatar } from './profile/avatar.js';
@@ -352,8 +352,9 @@ let checkpointBusy = false;
       return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
     }
     function updateDurationPreview() {
-      const hours = durationHours(get('start-time').value, get('end-time').value);
-      get('duration-preview').textContent = hours.toFixed(1) + ' 小时';
+      const existing=editingId?logs.find(item=>item.id===editingId):null;
+      const hours=existing?.timeSegments?existing.hours:durationHours(get('start-time').value,get('end-time').value);
+      get('duration-preview').textContent=hours.toFixed(1)+' 小时';
     }
     function rangeFor(currentMode, anchor) {
       const pivot = new Date(anchor + 'T12:00:00');
@@ -787,11 +788,11 @@ let checkpointBusy = false;
         const startTime = /^\d{2}:\d{2}$/.test(String(item.startTime || '')) ? String(item.startTime) : '09:00';
         const endTime = /^\d{2}:\d{2}$/.test(String(item.endTime || '')) ? String(item.endTime) : '10:00';
         const importedHours = Number(item.hours);
-        const hours = importedHours > 0 && importedHours <= 24 ? importedHours : durationHours(startTime, endTime);
+        const timeSegments=Array.isArray(item.timeSegments)?splitTimeSegments(item.timeSegments):null;
+        const hours = timeSegments ? segmentHours(timeSegments) : importedHours > 0 && importedHours <= 24 ? importedHours : durationHours(startTime, endTime);
         return {
           id,
-          ...(typeof item.sessionId === 'string' ? {sessionId:item.sessionId} : {}),
-          ...(Array.isArray(item.timeSegments) ? {timeSegments:item.timeSegments} : {}),
+          ...(timeSegments ? {timeSegments} : {}),
           workDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.workDate || '')) ? String(item.workDate) : today(),
           title: String(item.title || '未命名工作').slice(0, 200),
           project: String(item.project || '').slice(0, 120),
@@ -906,7 +907,7 @@ let checkpointBusy = false;
       const progress = Number(get('progress').value);
       if (hours <= 0 || hours > 24 || progress < 0 || progress > 100) { toast('请检查起止时间和进度。'); return; }
       const existingRecord = editingId ? logs.find((item) => item.id === editingId) : null;
-      const record = {
+      let record = {
         id: editingId || Date.now(),
         workDate: get('work-date').value,
         title: get('title').value.trim(),
@@ -923,6 +924,7 @@ let checkpointBusy = false;
         painStatus: document.querySelector('input[name="pain-status"]:checked').value,
         painResponse: get('pain-response').value.trim()
       };
+      try { record=preserveSegmentedTiming(existingRecord,record); } catch(e) { toast(e.message);return; }
       if (editingId) {
         logs = logs.map((item) => item.id === editingId ? record : item);
       } else {
@@ -977,18 +979,19 @@ let checkpointBusy = false;
       const startedAt = flowStartedAt;
       const endedAt = new Date();
       const elapsedHours = (endedAt.getTime() - startedAt.getTime()) / 3600000;
-      if (!(elapsedHours > 0) || elapsedHours > 24) return 'invalid-duration';
+      if (!Number.isFinite(elapsedHours) || !(elapsedHours > 0)) return 'invalid-duration';
       const taskList = taskSummary(flowDraftTasks);
       let startTime = timeString(startedAt);
       let endTime = timeString(endedAt);
-      if (startTime === endTime) endTime = timeAfter(startTime, 1 / 60);
+      if (startTime === endTime && elapsedHours < 1 / 60) endTime = timeAfter(startTime, 1 / 60);
       const record = {
         id: Date.now(),
         workDate: dateKey(startedAt),
         title: flowTaskTitle(taskList),
         project,
         category: get('flow-category').value,
-        hours: Math.max(1 / 60, elapsedHours),
+        hours: elapsedHours,
+        timeSegments: splitTimeSegments([{start:startedAt.getTime(),end:endedAt.getTime()}]),
         startTime,
         endTime,
         progress: 100,
@@ -1023,12 +1026,13 @@ let checkpointBusy = false;
       const result = completeFlow();
       if (result === 'inactive') toast('请重新进入心流模式后开始计时。');
       if (result === 'missing-project') toast('请填写本次心流所属项目。');
-      if (result === 'invalid-duration') toast('本次心流计时异常，请在 24 小时内完成并记录。');
+      if (result === 'invalid-duration') toast('本次心流计时异常，请检查系统时间后重试。');
     });
     function completeFlowOnPageExit(event) {
       if (workbench.isDirectory()) return;
       if (event.type === 'pagehide' && event.persisted === true) return;
       completeFlow({ background: true });
+      if(event.type==='beforeunload' && workbench.isPending()){event.preventDefault();event.returnValue='';}
     }
     window.addEventListener('beforeunload', completeFlowOnPageExit);
     window.addEventListener('pagehide', completeFlowOnPageExit);
@@ -1632,7 +1636,7 @@ let checkpointBusy = false;
       const session = workbench.controller.getWorkspace().sessions.find(s => s.id === sessionIds[kind]);
       const draft = kind === 'flow' ? {project:get('flow-project').value,category:get('flow-category').value,tasks:flowDraftTasks} : kind === 'meeting' ? {project:get('meeting-project').value || get('project').value,content:get('meeting-dialog-content').value,outcome:get('meeting-outcome').value,tasks:meetingDraftTasks,meetingDraft} : {project:taskTracking?.project || session?.draft.project};
       const run=sessionRuns[kind];
-      const segments=run ? [...run.prior,{start:run.start,end:run.end || Date.now()}] : session?.draft.segments || [];
+      const segments=splitTimeSegments(run ? [...run.prior,{start:run.start,end:run.end || Date.now()}] : session?.draft.segments || []);
       return {elapsedMs:started ? Math.max(0,Date.now()-started.getTime()) : kind === 'meeting' && meetingDraft ? meetingDraft.hours*3600000 : session?.elapsedMs || 0,draft:{...draft,segments,originDate:session?.draft.originDate || dateKey(started || new Date()),originTime:session?.draft.originTime || timeString(started || new Date())}};
     }
     async function beginSession(kind) {

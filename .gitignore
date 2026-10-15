@@ -35,3 +35,6 @@ Desktop.ini
 *.tmp
 *.bak
 *~
+
+# Machine-local launcher state/logs.
+/.local/

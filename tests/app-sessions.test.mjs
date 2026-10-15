@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {newWorkspace,validateWorkspace} from '../src/model/workspace.js';
-import {segmentHours,recordsInRange} from '../src/model/time.js';
+import {segmentHours,recordsInRange,splitTimeSegments} from '../src/model/time.js';
 
 test('production timer wrappers checkpoint and restore only actual work segments for all timer kinds',async()=>{
   const source=readFileSync('src/app.js','utf8');
@@ -13,7 +13,7 @@ test('production timer wrappers checkpoint and restore only actual work segments
     let now=new Date('2026-10-09T09:00:00').getTime(),w=newWorkspace();
     class Clock extends Date {constructor(value){super(value===undefined?now:value);}static now(){return now;}}
     const controller={getWorkspace:()=>structuredClone(w),commit:async fn=>{w=validateWorkspace(fn(structuredClone(w)));}};
-    const c=vm.createContext({Date:Clock,globalThis:{crypto:{randomUUID:()=>kind+'-session'}},workbench:{isDirectory:()=>true,isPending:()=>false,controller},sessionIds:{},sessionRuns:{},checkpointBusy:false,activeProfileId:w.activeProfileId,flowStartedAt:kind==='flow'?new Clock():null,meetingStartedAt:kind==='meeting'?new Clock():null,taskTracking:kind==='task'?{project:'A',startedAt:new Clock()}:null,meetingDraft:null,flowDraftTasks:[],meetingDraftTasks:[],get:id=>({value:id.includes('category')?'项目推进':'A'}),toast:()=>{},segmentHours});
+    const c=vm.createContext({Date:Clock,globalThis:{crypto:{randomUUID:()=>kind+'-session'}},workbench:{isDirectory:()=>true,isPending:()=>false,controller},sessionIds:{},sessionRuns:{},checkpointBusy:false,activeProfileId:w.activeProfileId,flowStartedAt:kind==='flow'?new Clock():null,meetingStartedAt:kind==='meeting'?new Clock():null,taskTracking:kind==='task'?{project:'A',startedAt:new Clock()}:null,meetingDraft:null,flowDraftTasks:[],meetingDraftTasks:[],get:id=>({value:id.includes('category')?'项目推进':'A'}),toast:()=>{},segmentHours,splitTimeSegments});
     vm.runInContext(code,c);await c.beginSession(kind);now+=15000;await c.checkpointSessions();
     const saved=structuredClone(w.sessions[0]);assert.equal(saved.elapsedMs,15000);
     now+=3600000;c.sessionRuns[kind]={start:now,prior:saved.draft.segments,restored:true};

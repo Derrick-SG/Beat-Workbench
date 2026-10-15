@@ -1,3 +1,4 @@
+import { segmentHours } from './time.js';
 export function uid() { return globalThis.crypto?.randomUUID?.() || 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 export function storageError(code, message) { return Object.assign(new Error(message), {code}); }
 export function newWorkspace() {
@@ -23,7 +24,7 @@ export function validateWorkspace(value) {
     validateAvatarShape(p.avatar); ids.add(p.id); names.add(p.name);
     const recordIds=new Set(),taskIds=new Set();
     for(const r of p.records){
-      if(!r || !Number.isSafeInteger(r.id) || recordIds.has(r.id) || typeof r.workDate!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.workDate) || !Number.isFinite(Date.parse(r.workDate)) || new Date(r.workDate+'T12:00:00Z').toISOString().slice(0,10)!==r.workDate || typeof r.title!=='string' || typeof r.project!=='string' || !Number.isFinite(r.hours) || r.hours<=0 || r.hours>24 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.endTime))throw storageError('invalid','记录ID、日期、时段或工时无效');
+      if(!r || !Number.isSafeInteger(r.id) || recordIds.has(r.id) || typeof r.workDate!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.workDate) || !Number.isFinite(Date.parse(r.workDate)) || new Date(r.workDate+'T12:00:00Z').toISOString().slice(0,10)!==r.workDate || typeof r.title!=='string' || typeof r.project!=='string' || !Number.isFinite(r.hours) || r.hours<=0 || (r.hours>24 && (!Array.isArray(r.timeSegments)||!r.timeSegments.length||Math.abs(segmentHours(r.timeSegments)-r.hours)>1e-7)) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.endTime))throw storageError('invalid','记录ID、日期、时段或工时无效');
       recordIds.add(r.id);
       if(Object.prototype.hasOwnProperty.call(r,'_ranges'))throw storageError('invalid','记录含保留的统计字段');
     }

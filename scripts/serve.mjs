@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
+const projectIdentity=createHash('sha256').update(path.resolve(fileURLToPath(new URL('../',import.meta.url))).toLowerCase()).digest('hex');
 const sourceRoot = new URL('../src/', import.meta.url);
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -14,6 +16,7 @@ for(const name of ['bootstrap.js','model/workspace.js','model/time.js','profile/
 export function createServer() {
   return http.createServer(async (request, response) => {
     if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405, { Allow: 'GET, HEAD' }); response.end(); return; }
+    if((request.url||'').split('?')[0]==='/__beat-workbench-health'){response.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});response.end(request.method==='HEAD'?undefined:JSON.stringify({app:'Beat-Workbench',project:projectIdentity,pid:process.pid}));return;}
     const asset = assets.get((request.url || '/').split('?')[0]);
     if (!asset) { response.writeHead(404); response.end('Not found'); return; }
     try {

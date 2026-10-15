@@ -1,4 +1,4 @@
-import { recordsInRange } from '../src/model/time.js';
+import { recordsInRange, segmentHours, splitTimeSegments } from '../src/model/time.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ function harness() {
   const storage = new Map([['logs:original', '[{"id":99}]']]);
   const elements = new Map();
   const context = vm.createContext({
-    Blob, console, workbench:{controller:{getWorkspace:()=>({workspaceId:'test'})}}, recordsInRange, parseProfileBackup, makeProfileBackup, validateAvatar:async value=>value, flowStartedAt:null,meetingStartedAt:null,taskTracking:null,meetingDraft:null, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
+    Blob, console, workbench:{controller:{getWorkspace:()=>({workspaceId:'test'})}}, recordsInRange, segmentHours, splitTimeSegments, parseProfileBackup, makeProfileBackup, validateAvatar:async value=>value, flowStartedAt:null,meetingStartedAt:null,taskTracking:null,meetingDraft:null, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
     window: { appStorage: { setItem: (key, value) => storage.set(key, value) } },
     profileDataKey: id => 'logs:' + id, profileTasksKey: id => 'tasks:' + id,
     today: () => '2026-10-08',
@@ -102,4 +102,13 @@ test('overlaps count once and shared project time is apportioned; overnight dura
   const start=new Date('2026-10-09T09:00:00').getTime();
   const segmented={...record,workDate:'2026-10-09',timeSegments:[{start,end:start+15000},{start:start+3615000,end:start+3630000}]};
   assert.equal(c.timeStatsFor([segmented]).total,30/3600);
+});
+
+test('multi-day segmented flow backup roundtrip retains duration and statistics',async()=>{
+  const c=harness(),start=new Date('2026-10-14T23:30:00').getTime();
+  const long={...record,hours:25,workDate:'2026-10-14',startTime:'23:30',endTime:'00:30',timeSegments:splitTimeSegments([{start,end:start+25*3600000}])};
+  c.importBackup({name:'synthetic-long.json',text:JSON.stringify({version:4,profile:{name:'合成'},records:[long],tasks:[]})});await c.importDone;
+  assert.equal(c.logs[0].hours,25);assert.equal(c.timeStatsFor(c.logs).total,25);
+  c.exportBackup();const backup=JSON.parse(await c.download.blob.text());const next=harness();next.importBackup({name:'roundtrip.json',text:JSON.stringify(backup)});await next.importDone;
+  assert.equal(next.logs[0].hours,25);assert.equal(next.timeStatsFor(next.logs).total,25);
 });

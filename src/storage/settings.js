@@ -19,3 +19,10 @@ export async function databaseTransaction(store,mode,action,indexedDB=globalThis
 }
 export function readSourceSettings() {return databaseTransaction('settings','readonly',(s,set)=>{const r=s.get('source');r.onsuccess=()=>set(r.result||{mode:'browser'});});}
 export function writeSourceSettings(value) {return databaseTransaction('settings','readwrite',s=>s.put(value,'source'));}
+
+export function createSourceSettings({read=readSourceSettings,write=writeSourceSettings,allowBrowserFallback=false,onAvailability=()=>{}}={}){
+  return {
+    async read(){try{const value=await read();onAvailability(true);return value;}catch(e){onAvailability(false);if(allowBrowserFallback)return {mode:'browser'};throw Error('无法读取数据来源设置，已停止自动载入其他副本。请关闭其他工作台标签后重新连接。'+e.message);}},
+    async write(value){try{await write(value);onAvailability(true);}catch(e){onAvailability(false);if(allowBrowserFallback&&value.mode==='browser')return;throw Error('数据来源设置未保存，未切换来源。'+e.message);}}
+  };
+}
