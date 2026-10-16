@@ -22,12 +22,12 @@ export async function initializeWorkbench(){
   const map=new Map();
   function fillMap(w){map.clear();map.set('jiepai-user-profiles-v1',JSON.stringify(w.profiles.map(({id,name,avatar})=>({id,name,avatar}))));map.set('jiepai-active-profile-v1',w.activeProfileId);for(const p of w.profiles){map.set('jiepai-work-logs-v2:'+p.id,JSON.stringify(p.records));map.set('jiepai-project-tasks-v1:'+p.id,JSON.stringify(p.tasks));}}
   function stateChanged(state){
-    const message=(state.mode==='directory'?'已连接文件夹 · '+(state.directoryName||''):'当前浏览器')+' · '+({resolving:'正在确定数据来源',loading:'正在读取数据',migrating:'正在迁移当前数据…',verifying:'正在验证目标数据…',ready:temporary?'临时会话 · 关闭后数据会清除':'已就绪',saving:'正在保存…',reconnect:'无法读取已选数据，请重新连接或使用原浏览器数据',error:'最新修改尚未保存',conflict:'外部数据已修改，已停止自动保存'}[state.phase]||state.phase);
+    const message=(state.mode==='directory'?'已连接文件夹 · '+(state.directoryName||''):'当前浏览器')+' · '+({resolving:'正在确定数据来源',loading:'正在读取数据',migrating:'正在迁移当前数据…',verifying:'正在验证目标数据…',ready:temporary?'临时会话 · 关闭后数据会清除':'已就绪',stalled:'保存等待超时，写入可能仍在进行，请打开保存状态导出副本',saving:'正在保存…',reconnect:'无法读取已选数据，请重新连接或使用原浏览器数据',error:'最新修改尚未保存',conflict:'外部数据已修改，已停止自动保存'}[state.phase]||state.phase);
     if(get('storage-mode-status'))get('storage-mode-status').textContent=message;
     if(get('storage-detail'))get('storage-detail').textContent=message+(state.error?'：'+state.error:'');
     if(get('storage-time'))get('storage-time').textContent=state.lastSavedAt?'最近成功保存：'+new Date(state.lastSavedAt).toLocaleString():state.lastReadAt?'最近成功读取：'+new Date(state.lastReadAt).toLocaleString():'尚未保存到文件夹';
     if(get('choose-folder'))get('choose-folder').textContent=state.mode==='directory'?'更换存储文件夹':'选择存储文件夹';
-    const directory=state.mode==='directory',failed=['error','conflict','reconnect'].includes(state.phase);
+    const directory=state.mode==='directory',failed=['error','conflict','reconnect','stalled'].includes(state.phase);
     for(const [id,visible] of [['reconnect-folder',directory&&failed],['browser-source',directory],['original-browser',directory&&failed],['retry-save',state.dirty&&state.phase!=='conflict'],['export-workspace',directory||failed],['restore-previous',directory],['reload-folder',directory&&failed]])if(get(id))get(id).hidden=!visible;
     banner.hidden=!!controller?.getWorkspace();
     if(!banner.hidden){banner.replaceChildren();const text=document.createElement('p');text.textContent=message+(state.error?'：'+state.error:'');banner.append(text);for(const [label,action] of [['重新连接',reconnect],['使用原浏览器数据',originalBrowser],['恢复上一份目录快照',repairDirectory],['创建临时会话',temporarySession]]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>action().catch(showError);banner.append(b);}}
@@ -136,7 +136,8 @@ export async function initializeWorkbench(){
   get('original-browser').onclick=async()=>{if(timerGuard())return showError(Error('请先结束计时'));if(!await guardDraft()||!formGuard())return;if(controller.getPending()&&!confirm('使用原浏览器数据将放弃当前待保存修改，请先导出当前副本。继续？'))return;originalBrowser().catch(showError);};
   get('reconnect-folder').onclick=()=>reconnect().catch(showError);
   get('retry-save').onclick=async()=>{try{await controller.retry();sync();get('toast').classList.remove('show');}catch(e){showError(e);}};
-  get('export-workspace').onclick=()=>{const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  function exportCurrentSnapshot(){const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  get('export-workspace').onclick=exportCurrentSnapshot;
   get('reload-folder').onclick=async()=>{if(timerGuard()||!await guardDraft())return;if(!confirm('重新加载将放弃未保存修改，请先导出当前副本。继续？'))return;await controller.initialize();sync();};
   get('restore-previous').onclick=async()=>{try{if(timerGuard())throw Error('请先结束计时');await repairDirectory();resetDraft();}catch(e){showError(e);}};
   const browserRecovery=document.createElement('button');browserRecovery.type='button';browserRecovery.textContent='恢复原浏览器独立副本';get('restore-previous').after(browserRecovery);
@@ -145,12 +146,12 @@ export async function initializeWorkbench(){
     if(!value||!confirm('恢复此副本？不修改目录，恢复列表仍保留。'))return;for(const p of value.profiles)await validateAvatar(p.avatar);await browserRepo.save(value,null,{replace:true});await controller.useOriginalBrowserData(true);sync();resetDraft();}catch(e){showError(e);}};
   function blockWorkspaceMutation(event){
     const busy=pending||profileBusy||sourceBusy||controller.getState().phase==='saving';
-    const blocked=busy?!event.target.closest('#export-workspace,.directory-choice'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#retry-save,#export-workspace,#reconnect-folder,#original-browser');
+    const blocked=busy?!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-recovery-dialog'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,.flow-recovery-dialog,#retry-save,#export-workspace,#reconnect-folder,#original-browser');
     if(blocked){event.preventDefault();event.stopImmediatePropagation();}
   }
   document.addEventListener('click',blockWorkspaceMutation,true);
   document.addEventListener('submit',blockWorkspaceMutation,true);
-  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if((sourceBusy&&!event.target.closest('.directory-choice'))||(type==='beforeinput'&&controller.getPending())){event.preventDefault();event.stopImmediatePropagation();}},true);
+  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if((sourceBusy&&!event.target.closest('.directory-choice'))||(type==='beforeinput'&&controller.getPending()&&!event.target.closest('.flow-recovery-dialog'))){event.preventDefault();event.stopImmediatePropagation();}},true);
   for(const type of ['click','cancel'])dialog.addEventListener(type,event=>{if(type==='cancel'||event.target.closest('#close-data-dialog,[data-profile-id],#create-profile,.import-data')){
     if(timerGuard()&&type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')){event.preventDefault();event.stopImmediatePropagation();showError(Error('请先结束计时再切换用户'));return;}
     if(type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')&&!formGuard()){event.preventDefault();event.stopImmediatePropagation();return;}
@@ -158,5 +159,5 @@ export async function initializeWorkbench(){
   }},true);
   get('open-data-dialog').addEventListener('click',resetDraft,true);
   resetDraft();stateChanged(controller.getState());
-  return {storage,controller,flushLegacy,avatar,sync,resetDraft,isPending:()=>pending||legacyDirty,delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
+  return {storage,controller,flushLegacy,exportCurrentSnapshot,requestSourceAccess:async()=>{const handle=controller.getSource().handle;if(handle&&!await requestAccess(handle))throw Error('文件夹授权未获允许');},avatar,sync,resetDraft,isPending:()=>pending||legacyDirty||!!controller.getPending(),delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
 }

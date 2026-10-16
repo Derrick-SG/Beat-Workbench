@@ -871,6 +871,12 @@
 .data-enhancements [hidden] { display:none!important; }
 .draft-choice button { min-height:44px;padding:8px 12px;margin:6px;border-radius:10px;border:1px solid #bdcee1; }
 .user-row>div { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+
+.flow-recovery-dialog { width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 40px);overflow:auto; }
+.flow-recovery-dialog p { white-space:pre-line;margin:10px 0;line-height:1.6; }
+.flow-recovery-dialog input { background:#fff;min-height:44px; }
+.flow-recovery-dialog button { min-height:44px; }
+#flow-save-state { white-space:pre-line;line-height:1.6; }
 </style>
 </head>
 <body>
@@ -886,7 +892,7 @@
       <div><p class="eyebrow">个人工作复盘中心</p><h1>记录每一份投入，快速生成有分量的总结。</h1></div>
       <p class="hint"><b>小提示：</b>记录工作时补充「产出」和「下一步」，报告会更完整。</p>
     </div>
-    <section class="flow-mode feature-panel" id="flow-mode"><div class="flow-shell"><div class="flow-topbar"><div class="flow-brand"><span class="flow-brand-mark">✦</span><span>心流模式</span></div><div class="flow-top-actions"><div class="flow-live"><span>正在专注</span><b id="flow-timer">00:00:00</b></div><button class="flow-exit" id="leave-flow-mode" type="button">暂离心流</button></div></div><div class="flow-content"><div class="flow-intro"><p class="eyebrow">◎ 专注工作计时</p><h2>让时间只流向一件真正重要的事。</h2><p>进入后已自动开始计时。工作中可随时补充项目信息和任务清单，完成后会自动写入工作记录与各周期总结。</p><div class="flow-note"><b>智能统计：</b>同一时间段内属于相同项目的记录只计算一次时长，并在日报、周度、月度与年度中统一汇总。</div></div><form class="flow-form" id="flow-form"><label>所属项目<input id="flow-project" list="project-history" placeholder="输入或选择已登记项目" autocomplete="off" required></label><label>工作类型<select id="flow-category"><option>项目推进</option><option>会议讨论</option><option>对外协商</option><option>项目整理</option></select></label><div class="task-composer"><div class="task-composer-title"><span>任务清单</span><small>自动编号，可逐条完成</small></div><div class="task-entry-row"><input id="flow-task-input" maxlength="240" placeholder="输入一项任务后按 Enter 或点击添加"><button class="task-add" id="add-flow-task" type="button">添加任务</button></div><ol class="task-draft-list" id="flow-task-list"></ol><p class="task-composer-hint">选择所属项目后，会自动带入该项目的未完成任务；同步任务完成后会直接更新待完成任务。</p></div><div class="flow-actions"><button class="primary" type="submit">✓ 完成工作并记录</button><button class="flow-meeting" id="flow-meeting-toggle" type="button">● 快速会议</button></div></form></div></div></section>
+    <section class="flow-mode feature-panel" id="flow-mode"><div class="flow-shell"><div class="flow-topbar"><div class="flow-brand"><span class="flow-brand-mark">✦</span><span>心流模式</span></div><div class="flow-top-actions"><div class="flow-live"><span id="flow-live-label">尚未开始</span><b id="flow-timer">00:00:00</b></div><button class="flow-exit" id="flow-data-recovery" type="button">保存状态 / 恢复</button><button class="flow-exit" id="leave-flow-mode" type="button">暂离心流</button></div></div><div class="flow-content"><div class="flow-intro"><p class="eyebrow">◎ 专注工作计时</p><h2>让时间只流向一件真正重要的事。</h2><p>选择项目后点击“开始心流”。开始时间保存成功后才正式计时；正常完成按实际工作分段统计。异常重开须确认实际结束日期时间，包含退出期间。</p><div class="flow-note"><b>智能统计：</b>同一时间段内属于相同项目的记录只计算一次时长，并在日报、周度、月度与年度中统一汇总。</div></div><form class="flow-form" id="flow-form"><label>所属项目<input id="flow-project" list="project-history" placeholder="输入或选择已登记项目" autocomplete="off" required></label><button class="primary" id="start-flow-session" type="button" disabled>开始心流</button><p id="flow-save-state" role="status">请选择或填写所属项目。尚未开始。</p><label>工作类型<select id="flow-category"><option>项目推进</option><option>会议讨论</option><option>对外协商</option><option>项目整理</option></select></label><div class="task-composer"><div class="task-composer-title"><span>任务清单</span><small>自动编号，可逐条完成</small></div><div class="task-entry-row"><input id="flow-task-input" maxlength="240" placeholder="输入一项任务后按 Enter 或点击添加"><button class="task-add" id="add-flow-task" type="button">添加任务</button></div><ol class="task-draft-list" id="flow-task-list"></ol><p class="task-composer-hint">选择所属项目后，会自动带入该项目的未完成任务；同步任务完成后会直接更新待完成任务。</p></div><div class="flow-actions"><button class="primary" id="complete-flow-session" type="submit" disabled>✓ 完成工作并记录</button><button class="flow-meeting" id="flow-meeting-toggle" type="button">● 快速会议</button></div></form></div></div></section>
     <section class="dashboard feature-panel" id="dashboard">
       <div class="dashboard-hero"><div><p class="eyebrow">▣ 数据分析首页</p><h2>把每天的投入，看成清晰的工作节奏。</h2><p class="section-sub">自动汇总本地工作记录，快速查看今日项目投入，以及本周、本月、年度的进度与计划覆盖情况。</p></div><div class="dashboard-kpis"><div class="dashboard-kpi"><span>今日投入</span><b id="dashboard-today-hours">0.0h</b></div><div class="dashboard-kpi"><span>本周投入</span><b id="dashboard-week-hours">0.0h</b></div><div class="dashboard-kpi"><span>本月投入</span><b id="dashboard-month-hours">0.0h</b></div><div class="dashboard-kpi"><span>年度投入</span><b id="dashboard-year-hours">0.0h</b></div></div></div>
       <div class="dashboard-layout"><section class="dashboard-card"><div class="section-top"><div><p class="eyebrow">◎ 今日项目投入</p><h2>项目时长占比</h2><p class="section-sub">按实际记录时段统计，自动跳过断档。</p></div></div><div class="project-share" id="dashboard-today-share"></div></section><section class="dashboard-card"><div class="section-top"><div><p class="eyebrow">✦ 今日概览</p><h2>当日工作状态</h2><p class="section-sub">从已记录的任务、进度和下一步计划中提炼。</p></div></div><div class="dashboard-insights" id="dashboard-today-insights"></div></section></div>
@@ -1094,6 +1100,93 @@ function settleLegacySnapshot(workspace,profiles,activeProfileId){
 
 return {uid,storageError,newWorkspace,validateAvatarShape,validateWorkspace,readLegacyBrowser,parseProfileBackup,makeProfileBackup,settleLegacySnapshot};
 })();
+__modules["src/timers/sessions.js"]=await (async()=>{
+const {uid}=__modules["src/model/workspace.js"];
+const { splitTimeSegments, segmentHours }=__modules["src/model/time.js"];
+
+function createSessionManager({controller,clock=()=>performance.now(),setInterval=globalThis.setInterval,clearInterval=globalThis.clearInterval,onError=()=>{}}){
+  const running=new Map();let timer=null;
+  const elapsed=s=>s.elapsedMs+(running.has(s.id)?Math.max(0,clock()-running.get(s.id)):0);
+  async function start(kind,profileId,draft){
+    const w=controller.getWorkspace(),id=uid();
+    await controller.commit(v=>{v.sessions.push({id,workspaceId:w.workspaceId,profileId,kind,elapsedMs:0,checkpointAt:new Date().toISOString(),status:'running',draft:structuredClone(draft)});return v;});
+    running.set(id,clock());ensureTimer();return id;
+  }
+  function ensureTimer(){if(!timer)timer=setInterval(()=>checkpoint().catch(onError),15000);}
+  async function checkpoint(drafts={}){
+    const captures=new Map([...running].map(([id,start])=>[id,Math.max(0,clock()-start)]));
+    if(!captures.size)return;
+    await controller.commit(w=>{for(const s of w.sessions)if(captures.has(s.id)){s.elapsedMs+=captures.get(s.id);s.checkpointAt=new Date().toISOString();if(drafts[s.kind])s.draft=structuredClone(drafts[s.kind]);}return w;});
+    for(const [id,amount] of captures)if(running.has(id))running.set(id,running.get(id)+amount);
+  }
+  async function restore(id){
+    const s=controller.getWorkspace().sessions.find(s=>s.id===id);if(!s)throw Error('计时会话不存在');
+    running.set(id,clock());ensureTimer();return structuredClone(s);
+  }
+  async function discard(id){await controller.commit(w=>{w.sessions=w.sessions.filter(s=>s.id!==id);return w;});running.delete(id);stopIfEmpty();}
+  async function complete(id,makeRecord){
+    let w=controller.getWorkspace();if(w.settledSessionIds.includes(id))return;
+    const s=w.sessions.find(s=>s.id===id);if(!s)throw Error('计时会话不存在');
+    const record=makeRecord({sessionId:id,profileId:s.profileId,elapsedMs:elapsed(s),draft:structuredClone(s.draft)});
+    await controller.commit(v=>{if(v.settledSessionIds.includes(id))return v;v.profiles.find(p=>p.id===s.profileId).records.push({...record,sessionId:id});v.settledSessionIds.push(id);v.sessions=v.sessions.filter(s=>s.id!==id);return v;});
+    running.delete(id);stopIfEmpty();
+  }
+  function stopIfEmpty(){if(!running.size&&timer){clearInterval(timer);timer=null;}}
+  async function pause(){await checkpoint();running.clear();stopIfEmpty();}
+  return {start,checkpoint,restore,discard,complete,pause,hasActiveSession:()=>running.size>0};
+}
+
+
+function localDate(ms){const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function localTime(ms){const d=new Date(ms);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function createFlowStartIntent(workspaceId,profileId,project,startedAt=Date.now()){
+  project=String(project).trim();if(!project||project.length>120)throw Error('请选择或填写有效所属项目');
+  if(!Number.isFinite(startedAt)||!Number.isFinite(new Date(startedAt).getTime()))throw Error('开始时间无效');
+  return {id:uid(),workspaceId,profileId,project,startedAt};
+}
+async function startDurableFlow(controller,intent,metadata={}){
+  const pending=controller.getPending();
+  if(pending){if(!pending.sessions.some(s=>s.id===intent.id))throw Error('有其他待保存数据，请先重试或导出');await controller.retry();}
+  let w=controller.getWorkspace();if(w.workspaceId!==intent.workspaceId)throw Error('数据来源已变化，未开始心流');
+  const existing=w.sessions.find(s=>s.id===intent.id);if(existing)return existing;
+  if(w.settledSessionIds.includes(intent.id))throw Error('本次心流已结算，不能重复启动');
+  if(w.sessions.some(s=>s.kind==='flow'&&s.profileId===intent.profileId))throw Error('请先确认上次心流的结束时间');
+  await controller.commit(value=>{if(value.workspaceId!==intent.workspaceId||!value.profiles.some(p=>p.id===intent.profileId))throw Error('用户或来源已变化');value.sessions.push({id:intent.id,workspaceId:intent.workspaceId,profileId:intent.profileId,kind:'flow',status:'running',elapsedMs:0,checkpointAt:new Date(intent.startedAt).toISOString(),draft:{recoveryPolicy:'confirm-end',startedAt:intent.startedAt,project:intent.project,category:metadata.category||'项目推进',tasks:structuredClone(metadata.tasks||[]),segments:[],originDate:localDate(intent.startedAt),originTime:localTime(intent.startedAt)}});return value;});
+  return controller.getWorkspace().sessions.find(s=>s.id===intent.id);
+}
+function flowStartTime(session){
+  const starts=(session.draft.segments||[]).map(s=>s.start).filter(Number.isFinite);
+  const value=Number.isFinite(session.draft.startedAt)?session.draft.startedAt:starts.length?Math.min(...starts):Date.parse(session.draft.originDate+'T'+session.draft.originTime+':00');
+  if(!Number.isFinite(value))throw Error('旧版心流开始时间无法验证，请导出副本核对');return value;
+}
+function validateFlowEnd(session,endAt,now=Date.now()){
+  if(!Number.isFinite(endAt)||!Number.isFinite(new Date(endAt).getTime()))throw Error('请填写实际结束日期与时间');
+  const start=flowStartTime(session);if(endAt<start)throw Error('结束时间不能早于开始时间');if(endAt===start)throw Error('结束时间必须晚于开始时间，不能生成零时长记录');if(endAt>now)throw Error('结束时间不能晚于当前时间');return endAt;
+}
+async function settleDurableFlow(controller,sessionId,{endAt,now=Date.now(),segments=null,recordDraft={},draftTasks=[]}){
+  const pending=controller.getPending();
+  if(pending){if(!pending.settledSessionIds.includes(sessionId)&&!pending.sessions.some(s=>s.id===sessionId))throw Error('有其他待保存副本，请先重试或导出');await controller.retry();}
+  const w=controller.getWorkspace(),already=w.profiles.flatMap(p=>p.records).find(r=>r.sessionId===sessionId);
+  if(w.settledSessionIds.includes(sessionId)){if(!already)throw Error('结算标记缺少记录，请导出核对');return already;}
+  const session=w.sessions.find(s=>s.id===sessionId&&s.kind==='flow');if(!session)throw Error('待结算心流不存在，请重新读取');
+  validateFlowEnd(session,endAt,now);const start=flowStartTime(session);
+  const actual=splitTimeSegments(segments||[{start,end:endAt}]);
+  if(!actual.length||actual.some(s=>s.start<start||s.end>endAt)||!(segmentHours(actual)>0))throw Error('实际工作分段无效');
+  await controller.commit(value=>{
+    if(value.settledSessionIds.includes(sessionId))return value;
+    const found=value.sessions.find(s=>s.id===sessionId&&s.profileId===session.profileId);if(!found)throw Error('会话归属已变化');
+    const owner=value.profiles.find(p=>p.id===session.profileId);if(!owner)throw Error('原用户不存在');
+    let id=Date.now();while(owner.records.some(r=>r.id===id))id++;
+    const record={id,workDate:localDate(start),title:recordDraft.title||'心流工作',project:session.draft.project,category:recordDraft.category||session.draft.category||'项目推进',progress:100,outcome:recordDraft.outcome||'心流工作记录',nextStep:'',meetingContent:'',painPoint:'',painSolution:'',painStatus:'已解决',painResponse:'',hours:segmentHours(actual),startTime:localTime(start),endTime:localTime(endAt),sessionId,timeSegments:actual,flowSettlement:segments?'segments':'confirmed-end'};
+    owner.records.push(record);
+    for(const task of draftTasks.filter(t=>!t.sourceTaskId&&String(t.text||'').trim()))owner.tasks.push({id:uid(),text:String(task.text).trim().slice(0,240),project:session.draft.project,completed:!!task.completed,createdAt:new Date(now).toISOString(),completedAt:task.completed?new Date(now).toISOString():'',source:'心流模式',batchId:sessionId});
+    value.sessions=value.sessions.filter(s=>s.id!==sessionId);value.settledSessionIds.push(sessionId);return value;
+  });
+  return controller.getWorkspace().profiles.find(p=>p.id===session.profileId).records.find(r=>r.sessionId===sessionId);
+}
+
+return {createSessionManager,createFlowStartIntent,startDurableFlow,flowStartTime,validateFlowEnd,settleDurableFlow};
+})();
 __modules["src/storage/settings.js"]=await (async()=>{
 
 function openDatabase(indexedDB=globalThis.indexedDB) {
@@ -1244,12 +1337,16 @@ return {detectDirectorySupport,pickDirectory,queryAccess,requestAccess,readPrevi
 __modules["src/storage/controller.js"]=await (async()=>{
 const {validateWorkspace,newWorkspace,storageError}=__modules["src/model/workspace.js"];
 
-function createWorkspaceController({browserRepo,settings,directoryFactory,onState=()=>{},validateLoaded=async w=>w}) {
+function createWorkspaceController({browserRepo,settings,directoryFactory,onState=()=>{},validateLoaded=async w=>w,saveTimeoutMs=15000,maxQueuedCommits=8}) {
+  let inFlight=null,queued=0,lastRequest=Promise.resolve();
   let workspace=null,repo=browserRepo,source={mode:'browser'},tail=Promise.resolve(),generation=0,pending=null;
   let state={mode:'browser',phase:'resolving',dirty:false};
   const emit=patch=>{state={...state,...patch};onState({...state});};
   const clone=()=>workspace?structuredClone(workspace):null;
   async function initialize(){
+    if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本，完成后重试');
+    if(pending)throw storageError('busy','尚未保存的副本待核对，请先重试或导出');
+    generation++;
     emit({phase:'loading'});
     try{
       source=await settings.read();
@@ -1260,27 +1357,40 @@ function createWorkspaceController({browserRepo,settings,directoryFactory,onStat
       workspace=await validateLoaded(workspace);emit({phase:'ready',lastReadAt:new Date().toISOString(),error:null});
     }catch(e){workspace=null;emit({phase:'reconnect',error:e.message});}
   }
-  function commit(update){
-    const captured=generation;
+  function commit(update,options={}){
+    if(inFlight||(pending&&!options.retryCandidate))return Promise.reject(storageError('busy','文件写入仍在进行或尚未核对，请先重试或导出'));
+    if(queued>=maxQueuedCommits)return Promise.reject(storageError('busy','保存队列已满，请等待或导出副本'));
+    const captured=generation,token={expired:false};queued++;
+    let rejectDeadline;
+    const deadline=new Promise((_,reject)=>{rejectDeadline=reject;});
+    const timer=setTimeout(()=>{token.expired=true;if(inFlight===token)emit({phase:'stalled',dirty:true,error:'保存等待超时，写入可能仍在进行；已禁止新写入，请导出副本，完成后重试核对。'});rejectDeadline(storageError('timeout','保存等待超时，写入可能仍在进行；请导出副本，完成后重试核对'));},saveTimeoutMs);
     const operation=tail.then(async()=>{
-      if(captured!==generation || !workspace || pending || ['reconnect','conflict'].includes(state.phase))throw storageError('conflict','数据来源已变化、尚未连接或存在待重试修改');
-      const candidate=validateWorkspace(update(clone()));candidate.revision=workspace.revision+1;candidate.updatedAt=new Date().toISOString();pending=candidate;
+      if(token.expired)throw storageError('timeout','排队保存等待超时，未执行新写入');
+      if(captured!==generation||!workspace||(pending&&!options.retryCandidate)||['reconnect','conflict'].includes(state.phase))throw storageError('conflict','数据来源已变化、尚未连接或存在待重试修改');
+      const candidate=options.retryCandidate?validateWorkspace(options.retryCandidate):validateWorkspace(update(clone()));if(!options.retryCandidate){candidate.revision=workspace.revision+1;candidate.updatedAt=new Date().toISOString();}pending=candidate;inFlight=token;
       emit({phase:'saving',dirty:true,error:null});
       try{
         const current=await repo.load();
-        if(current && (current.workspaceId!==workspace.workspaceId || current.revision!==workspace.revision || JSON.stringify(current)!==JSON.stringify(workspace)))throw storageError('conflict','数据已在其他位置修改，已停止自动保存');
+        if(token.expired||captured!==generation)throw storageError('timeout','读取等待已超时，未启动后续文件写入；请重试核对');
+        if(options.retryCandidate&&current&&JSON.stringify(current)===JSON.stringify(candidate)){if(token.expired||captured!==generation)throw storageError('timeout','核对等待超时，请再次重试');workspace=current;pending=null;emit({phase:'ready',dirty:false,error:null,lastSavedAt:current.updatedAt});return {savedAt:current.updatedAt};}
+        if(current&&(current.workspaceId!==workspace.workspaceId||current.revision!==workspace.revision||JSON.stringify(current)!==JSON.stringify(workspace)))throw storageError('conflict','数据已在其他位置修改，已停止自动保存');
         const receipt=await repo.save(candidate,current?.revision??null);
+        if(captured!==generation)throw storageError('conflict','来源已变化，迟到写入不激活旧工作区');
+        if(token.expired)throw storageError('timeout','超时写入已返回，请重试核对保存副本；未自动激活');
         workspace=candidate;pending=null;emit({phase:'ready',dirty:false,lastSavedAt:receipt.savedAt,error:null});return receipt;
-      }catch(e){emit({phase:e.code==='conflict'?'conflict':'error',dirty:true,error:e.message});throw e;}
-    });tail=operation.catch(()=>{});return operation;
+      }catch(e){if(captured===generation)emit({phase:e.code==='conflict'?'conflict':'error',dirty:true,error:e.message});throw e;}
+      finally{if(inFlight===token)inFlight=null;}
+    }).finally(()=>{queued--;clearTimeout(timer);});
+    tail=operation.catch(()=>{});lastRequest=Promise.race([operation,deadline]);return lastRequest;
   }
   async function previewDirectory(handle){
+    if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本');
     await tail;const target=directoryFactory(handle),raw=await target.load(),value=raw?await validateLoaded(raw):null;
     return {handle,repo:target,kind:value?'existing':'empty',workspace:value,fingerprint:JSON.stringify(raw),summary:value?summary(value):summary(workspace)};
   }
   async function migrateDirectory(preview,confirmation){return activateDirectory(preview,confirmation,true);}
   async function activateDirectory(preview,confirmation,migrate=false){
-    if(!confirmation)return;await tail;
+    if(!confirmation)return;if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本');await tail;
     if(pending)throw Error('请先重试保存或导出待保存副本');
     if(migrate && source.mode==='directory' && source.handle.isSameEntry && await source.handle.isSameEntry(preview.handle))return;
     const fresh=await preview.repo.load();
@@ -1295,26 +1405,24 @@ function createWorkspaceController({browserRepo,settings,directoryFactory,onStat
     generation++;source={mode:'directory',handle:preview.handle};repo=preview.repo;workspace=next;pending=null;emit({mode:'directory',directoryName:preview.handle.name,phase:'ready',dirty:false,lastReadAt:new Date().toISOString(),error:null});
   }
   async function returnToBrowser(confirmation){
-    if(!confirmation)return;await tail;if(pending)throw Error('请先重试保存或导出待保存副本');
+    if(!confirmation)return;if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本');await tail;if(pending)throw Error('请先重试保存或导出待保存副本');
     const prior=await browserRepo.load();
     await browserRepo.save(clone(),prior?.revision??null,{replace:true,preserve:true,recovery:prior});
     await settings.write({mode:'browser'});generation++;repo=browserRepo;source={mode:'browser'};emit({mode:'browser',directoryName:null,phase:'ready',dirty:false,lastSavedAt:workspace.updatedAt,error:null});
   }
   async function useOriginalBrowserData(confirmation,create=false){
-    if(!confirmation)return;await tail;let value=await browserRepo.load();
+    if(!confirmation)return;if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本');await tail;let value=await browserRepo.load();
     if(!value && !create)throw Error('没有可读取的浏览器副本，请明确创建工作区或导入备份');
     if(!value){value=newWorkspace();await browserRepo.save(value,null);}
     value=await validateLoaded(value);
     await settings.write({mode:'browser'});generation++;workspace=value;repo=browserRepo;source={mode:'browser'};pending=null;emit({mode:'browser',directoryName:null,phase:'ready',dirty:false,lastReadAt:new Date().toISOString(),error:null});
   }
   async function retry(){
+    if(inFlight||queued)throw storageError('busy','文件写入仍在进行，不能并发重试；请先导出副本');
     if(!pending){await initialize();return;}
-    const candidate=structuredClone(pending),current=await repo.load();
-    if(current && JSON.stringify(current)===JSON.stringify(candidate)){workspace=current;pending=null;emit({phase:'ready',dirty:false,error:null,lastSavedAt:current.updatedAt});return;}
-    if(current && (current.revision!==workspace.revision || JSON.stringify(current)!==JSON.stringify(workspace)))throw storageError('conflict','外部数据不同，请导出副本后重新加载');
-    await repo.save(candidate,current?.revision??null);workspace=candidate;pending=null;emit({phase:'ready',dirty:false,error:null,lastSavedAt:candidate.updatedAt});
+    return commit(()=>{}, {retryCandidate:structuredClone(pending)});
   }
-  return {initialize,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>tail,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
+  return {initialize,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
 }
 function summary(w){return w?`${w.profiles.length} 个工作区 / ${w.profiles.reduce((n,p)=>n+p.records.length,0)} 条记录`:'无数据';}
 
@@ -1411,12 +1519,12 @@ async function initializeWorkbench(){
   const map=new Map();
   function fillMap(w){map.clear();map.set('jiepai-user-profiles-v1',JSON.stringify(w.profiles.map(({id,name,avatar})=>({id,name,avatar}))));map.set('jiepai-active-profile-v1',w.activeProfileId);for(const p of w.profiles){map.set('jiepai-work-logs-v2:'+p.id,JSON.stringify(p.records));map.set('jiepai-project-tasks-v1:'+p.id,JSON.stringify(p.tasks));}}
   function stateChanged(state){
-    const message=(state.mode==='directory'?'已连接文件夹 · '+(state.directoryName||''):'当前浏览器')+' · '+({resolving:'正在确定数据来源',loading:'正在读取数据',migrating:'正在迁移当前数据…',verifying:'正在验证目标数据…',ready:temporary?'临时会话 · 关闭后数据会清除':'已就绪',saving:'正在保存…',reconnect:'无法读取已选数据，请重新连接或使用原浏览器数据',error:'最新修改尚未保存',conflict:'外部数据已修改，已停止自动保存'}[state.phase]||state.phase);
+    const message=(state.mode==='directory'?'已连接文件夹 · '+(state.directoryName||''):'当前浏览器')+' · '+({resolving:'正在确定数据来源',loading:'正在读取数据',migrating:'正在迁移当前数据…',verifying:'正在验证目标数据…',ready:temporary?'临时会话 · 关闭后数据会清除':'已就绪',stalled:'保存等待超时，写入可能仍在进行，请打开保存状态导出副本',saving:'正在保存…',reconnect:'无法读取已选数据，请重新连接或使用原浏览器数据',error:'最新修改尚未保存',conflict:'外部数据已修改，已停止自动保存'}[state.phase]||state.phase);
     if(get('storage-mode-status'))get('storage-mode-status').textContent=message;
     if(get('storage-detail'))get('storage-detail').textContent=message+(state.error?'：'+state.error:'');
     if(get('storage-time'))get('storage-time').textContent=state.lastSavedAt?'最近成功保存：'+new Date(state.lastSavedAt).toLocaleString():state.lastReadAt?'最近成功读取：'+new Date(state.lastReadAt).toLocaleString():'尚未保存到文件夹';
     if(get('choose-folder'))get('choose-folder').textContent=state.mode==='directory'?'更换存储文件夹':'选择存储文件夹';
-    const directory=state.mode==='directory',failed=['error','conflict','reconnect'].includes(state.phase);
+    const directory=state.mode==='directory',failed=['error','conflict','reconnect','stalled'].includes(state.phase);
     for(const [id,visible] of [['reconnect-folder',directory&&failed],['browser-source',directory],['original-browser',directory&&failed],['retry-save',state.dirty&&state.phase!=='conflict'],['export-workspace',directory||failed],['restore-previous',directory],['reload-folder',directory&&failed]])if(get(id))get(id).hidden=!visible;
     banner.hidden=!!controller?.getWorkspace();
     if(!banner.hidden){banner.replaceChildren();const text=document.createElement('p');text.textContent=message+(state.error?'：'+state.error:'');banner.append(text);for(const [label,action] of [['重新连接',reconnect],['使用原浏览器数据',originalBrowser],['恢复上一份目录快照',repairDirectory],['创建临时会话',temporarySession]]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>action().catch(showError);banner.append(b);}}
@@ -1525,7 +1633,8 @@ async function initializeWorkbench(){
   get('original-browser').onclick=async()=>{if(timerGuard())return showError(Error('请先结束计时'));if(!await guardDraft()||!formGuard())return;if(controller.getPending()&&!confirm('使用原浏览器数据将放弃当前待保存修改，请先导出当前副本。继续？'))return;originalBrowser().catch(showError);};
   get('reconnect-folder').onclick=()=>reconnect().catch(showError);
   get('retry-save').onclick=async()=>{try{await controller.retry();sync();get('toast').classList.remove('show');}catch(e){showError(e);}};
-  get('export-workspace').onclick=()=>{const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  function exportCurrentSnapshot(){const value=controller.getPending()||controller.getWorkspace(),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='Beat-Workbench-workspace-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  get('export-workspace').onclick=exportCurrentSnapshot;
   get('reload-folder').onclick=async()=>{if(timerGuard()||!await guardDraft())return;if(!confirm('重新加载将放弃未保存修改，请先导出当前副本。继续？'))return;await controller.initialize();sync();};
   get('restore-previous').onclick=async()=>{try{if(timerGuard())throw Error('请先结束计时');await repairDirectory();resetDraft();}catch(e){showError(e);}};
   const browserRecovery=document.createElement('button');browserRecovery.type='button';browserRecovery.textContent='恢复原浏览器独立副本';get('restore-previous').after(browserRecovery);
@@ -1534,12 +1643,12 @@ async function initializeWorkbench(){
     if(!value||!confirm('恢复此副本？不修改目录，恢复列表仍保留。'))return;for(const p of value.profiles)await validateAvatar(p.avatar);await browserRepo.save(value,null,{replace:true});await controller.useOriginalBrowserData(true);sync();resetDraft();}catch(e){showError(e);}};
   function blockWorkspaceMutation(event){
     const busy=pending||profileBusy||sourceBusy||controller.getState().phase==='saving';
-    const blocked=busy?!event.target.closest('#export-workspace,.directory-choice'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#retry-save,#export-workspace,#reconnect-folder,#original-browser');
+    const blocked=busy?!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-recovery-dialog'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,.flow-recovery-dialog,#retry-save,#export-workspace,#reconnect-folder,#original-browser');
     if(blocked){event.preventDefault();event.stopImmediatePropagation();}
   }
   document.addEventListener('click',blockWorkspaceMutation,true);
   document.addEventListener('submit',blockWorkspaceMutation,true);
-  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if((sourceBusy&&!event.target.closest('.directory-choice'))||(type==='beforeinput'&&controller.getPending())){event.preventDefault();event.stopImmediatePropagation();}},true);
+  for(const type of ['keydown','beforeinput'])document.addEventListener(type,event=>{if((sourceBusy&&!event.target.closest('.directory-choice'))||(type==='beforeinput'&&controller.getPending()&&!event.target.closest('.flow-recovery-dialog'))){event.preventDefault();event.stopImmediatePropagation();}},true);
   for(const type of ['click','cancel'])dialog.addEventListener(type,event=>{if(type==='cancel'||event.target.closest('#close-data-dialog,[data-profile-id],#create-profile,.import-data')){
     if(timerGuard()&&type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')){event.preventDefault();event.stopImmediatePropagation();showError(Error('请先结束计时再切换用户'));return;}
     if(type==='click'&&event.target.closest('[data-profile-id],#create-profile,.import-data')&&!formGuard()){event.preventDefault();event.stopImmediatePropagation();return;}
@@ -1547,16 +1656,18 @@ async function initializeWorkbench(){
   }},true);
   get('open-data-dialog').addEventListener('click',resetDraft,true);
   resetDraft();stateChanged(controller.getState());
-  return {storage,controller,flushLegacy,avatar,sync,resetDraft,isPending:()=>pending||legacyDirty,delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
+  return {storage,controller,flushLegacy,exportCurrentSnapshot,requestSourceAccess:async()=>{const handle=controller.getSource().handle;if(handle&&!await requestAccess(handle))throw Error('文件夹授权未获允许');},avatar,sync,resetDraft,isPending:()=>pending||legacyDirty||!!controller.getPending(),delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
 }
 
 return {initializeWorkbench};
 })();
 __modules["src/app.js"]=await (async()=>{
+const { createFlowStartIntent, startDurableFlow, settleDurableFlow, flowStartTime, validateFlowEnd }=__modules["src/timers/sessions.js"];
 const { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming }=__modules["src/model/time.js"];
 const { initializeWorkbench }=__modules["src/bootstrap.js"];
 const { parseProfileBackup, makeProfileBackup }=__modules["src/model/workspace.js"];
 const { validateAvatar }=__modules["src/profile/avatar.js"];
+
 
 
 
@@ -1640,6 +1751,7 @@ let checkpointBusy = false;
     let meetingTimer = null;
     let meetingDraft = null;
     let flowStartedAt = null;
+    let flowStartIntent=null,flowStartBusy=false,flowFinishIntent=null,flowFinishBusy=false,flowPageEpoch=0;
     let flowTimer = null;
     let flowDraftTasks = [];
     let meetingDraftTasks = [];
@@ -2512,20 +2624,40 @@ let checkpointBusy = false;
       timer.textContent = formatMeetingElapsed(Date.now() - flowStartedAt.getTime());
     }
     async function startFlowMode() {
-      const isNewFlow = !flowStartedAt;
-      if (isNewFlow) {
-        flowStartedAt = new Date();
-        get('flow-form').reset();
-        get('flow-category').value = '项目推进';
-        flowDraftTasks = [];
-        renderDraftTasks('flow');
-        clearFlowTimer();
-        flowTimer = window.setInterval(updateFlowControls, 1000);
-      }
-      if (isNewFlow) await beginSession('flow');
-      updateFlowControls();
-      switchFeaturePanel('flow-mode', true);
-      if (isNewFlow) toast('心流计时已开始。完成工作时会自动写入工作记录。');
+      switchFeaturePanel('flow-mode',true);updateFlowStartControls();updateFlowControls();
+    }
+    function updateFlowStartControls(){
+      get('start-flow-session').hidden=!!flowStartedAt;
+      get('start-flow-session').disabled=flowStartBusy||!get('flow-project').value.trim();
+      get('start-flow-session').textContent=flowStartBusy?'正在保存开始时间…':flowStartIntent?'重试开始':'开始心流';
+      get('flow-project').disabled=flowStartBusy||!!flowStartedAt||!!flowStartIntent;
+      get('complete-flow-session').disabled=!flowStartedAt||flowFinishBusy;
+      get('complete-flow-session').textContent=flowFinishBusy?'正在保存工作记录…':flowFinishIntent?'重试保存':'✓ 完成工作并记录';
+      get('flow-live-label').textContent=flowStartedAt?'正在专注':'尚未开始';
+    }
+    async function startSelectedFlow(){
+      if(flowStartBusy||flowStartedAt)return;
+      const startingEpoch=flowPageEpoch;
+      try{
+        const w=workbench.controller.getWorkspace();
+        if(!flowStartIntent)flowStartIntent=createFlowStartIntent(w.workspaceId,activeProfileId,get('flow-project').value,Date.now());
+        flowStartBusy=true;updateFlowStartControls();get('flow-save-state').textContent='正在保存开始时间…';
+        const session=await startDurableFlow(workbench.controller,flowStartIntent,{category:get('flow-category').value,tasks:flowDraftTasks});
+        if(startingEpoch!==flowPageEpoch){flowStartIntent=null;workbench.sync();get('flow-save-state').textContent='检测到页面退出，请确认上次心流结束时间。';return;}
+        sessionIds.flow=session.id;sessionRuns.flow={start:flowStartTime(session),prior:[]};flowStartedAt=new Date(flowStartTime(session));clearFlowTimer();flowTimer=window.setInterval(updateFlowControls,1000);
+        workbench.sync();get('flow-save-state').textContent=(workbench.temporary?'临时会话：关闭后无法保证恢复。':'开始时间已保存。')+' '+formatFlowTimestamp(flowStartTime(session));updateFlowControls();
+      }catch(e){get('flow-save-state').textContent='开始时间未保存，心流尚未启动。'+e.message;}
+      finally{flowStartBusy=false;updateFlowStartControls();}
+    }
+    async function completePersistedFlow(){
+      if(flowFinishBusy)return 'saving';
+      try{
+        if(!flowFinishIntent){const endAt=Date.now();sessionRuns.flow.end=endAt;const taskList=taskSummary(flowDraftTasks);flowFinishIntent={endAt,now:endAt,segments:sessionSnapshot('flow').draft.segments,recordDraft:{title:flowTaskTitle(taskList),category:get('flow-category').value,outcome:taskList?'心流完成任务：\n'+taskList:'已完成一次心流专注工作。'},draftTasks:structuredClone(flowDraftTasks)};clearFlowTimer();}
+        flowFinishBusy=true;updateFlowStartControls();get('flow-save-state').textContent='正在保存工作记录…';
+        await settleDurableFlow(workbench.controller,sessionIds.flow,flowFinishIntent);
+        delete sessionIds.flow;delete sessionRuns.flow;flowStartedAt=null;flowStartIntent=null;flowFinishIntent=null;flowDraftTasks=[];get('flow-form').reset();workbench.sync();renderDraftTasks('flow');updateFlowControls();get('flow-save-state').textContent='心流工作已保存。';switchFeaturePanel('work-records',true);toast('心流工作已完成并保存。');return 'saved';
+      }catch(e){get('flow-save-state').textContent='记录尚未保存，请重试或打开保存状态导出副本。'+e.message;if(!workbench.controller.getPending()){flowFinishIntent=null;if(sessionRuns.flow)delete sessionRuns.flow.end;clearFlowTimer();flowTimer=window.setInterval(updateFlowControls,1000);}return 'save-failed';}
+      finally{flowFinishBusy=false;updateFlowStartControls();}
     }
     function flowTaskTitle(taskList) {
       const firstTask = String(taskList || '').split(/\r?\n/).map((item) => item.trim()).find(Boolean) || '心流工作';
@@ -2535,6 +2667,8 @@ let checkpointBusy = false;
       if (!flowStartedAt) return 'inactive';
       const project = get('flow-project').value.trim();
       if (!project) return 'missing-project';
+      const durable=workbench.controller.getWorkspace().sessions.find(s=>s.id===sessionIds.flow&&s.draft.recoveryPolicy==='confirm-end');
+      if(durable)return completePersistedFlow();
       const startedAt = flowStartedAt;
       const endedAt = new Date();
       const elapsedHours = (endedAt.getTime() - startedAt.getTime()) / 3600000;
@@ -2580,14 +2714,16 @@ let checkpointBusy = false;
       toast('心流工作已完成并记录，已自动计入项目与工作总结。');
       return 'saved';
     }
-    get('flow-form').addEventListener('submit', (event) => {
+    get('flow-form').addEventListener('submit', async (event) => {
       event.preventDefault();
-      const result = completeFlow();
+      const result = await completeFlow();
       if (result === 'inactive') toast('请重新进入心流模式后开始计时。');
       if (result === 'missing-project') toast('请填写本次心流所属项目。');
       if (result === 'invalid-duration') toast('本次心流计时异常，请检查系统时间后重试。');
     });
     function completeFlowOnPageExit(event) {
+      if(event.type==='pagehide')flowPageEpoch++;
+      if(sessionIds.flow){if(event.type==='pagehide'){clearFlowTimer();delete sessionIds.flow;delete sessionRuns.flow;flowStartedAt=null;flowStartIntent=null;flowFinishIntent=null;}return;}
       if (workbench.isDirectory()) return;
       if (event.type === 'pagehide' && event.persisted === true) return;
       completeFlow({ background: true });
@@ -2595,6 +2731,10 @@ let checkpointBusy = false;
     }
     window.addEventListener('beforeunload', completeFlowOnPageExit);
     window.addEventListener('pagehide', completeFlowOnPageExit);
+    window.addEventListener('pageshow',resumeFlowPage);
+    function resumeFlowPage(event){
+      if(event.persisted){renderFlowRecovery();updateFlowStartControls();}
+    }
     ['flow', 'meeting'].forEach((kind) => {
       get('add-' + kind + '-task').addEventListener('click', () => addDraftTask(kind));
       get(kind + '-task-input').addEventListener('keydown', (event) => {
@@ -2635,7 +2775,9 @@ let checkpointBusy = false;
     });
     get('project').addEventListener('input', renderPendingTasks);
     get('project').addEventListener('change', renderPendingTasks);
-    get('flow-project').addEventListener('input', syncFlowProjectTasks);
+    get('flow-project').addEventListener('input',()=>{syncFlowProjectTasks();updateFlowStartControls();});
+    get('start-flow-session').addEventListener('click',startSelectedFlow);
+    get('flow-data-recovery').addEventListener('click',()=>get('open-data-dialog').click());
     get('flow-project').addEventListener('change', syncFlowProjectTasks);
     get('task-center-form').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -3174,12 +3316,13 @@ let checkpointBusy = false;
 
     workbench.bind({
       refresh(workspace) {
+        if(flowStartIntent&&flowStartIntent.workspaceId!==workspace.workspaceId){flowStartIntent=null;}
         profiles = workspace.profiles.map(({id,name,avatar}) => ({id,name,avatar}));
         activeProfileId = workspace.activeProfileId;
         const profile = workspace.profiles.find(p => p.id === activeProfileId);
         logs = profile.records.map(normalizeLog); tasks = normalizeTasks(profile.tasks);
         render(); renderProfiles();
-        if(document.querySelector('.session-recovery'))renderSessionRecovery();
+        if(document.querySelector('.session-recovery')){renderSessionRecovery();renderFlowRecovery();}
       },
       timerGuard: () => Boolean(flowStartedAt || meetingStartedAt || taskTracking || meetingDraft),
       formGuard: () => {
@@ -3196,7 +3339,7 @@ let checkpointBusy = false;
       const draft = kind === 'flow' ? {project:get('flow-project').value,category:get('flow-category').value,tasks:flowDraftTasks} : kind === 'meeting' ? {project:get('meeting-project').value || get('project').value,content:get('meeting-dialog-content').value,outcome:get('meeting-outcome').value,tasks:meetingDraftTasks,meetingDraft} : {project:taskTracking?.project || session?.draft.project};
       const run=sessionRuns[kind];
       const segments=splitTimeSegments(run ? [...run.prior,{start:run.start,end:run.end || Date.now()}] : session?.draft.segments || []);
-      return {elapsedMs:started ? Math.max(0,Date.now()-started.getTime()) : kind === 'meeting' && meetingDraft ? meetingDraft.hours*3600000 : session?.elapsedMs || 0,draft:{...draft,segments,originDate:session?.draft.originDate || dateKey(started || new Date()),originTime:session?.draft.originTime || timeString(started || new Date())}};
+      return {elapsedMs:started ? Math.max(0,Date.now()-started.getTime()) : kind === 'meeting' && meetingDraft ? meetingDraft.hours*3600000 : session?.elapsedMs || 0,draft:{...session?.draft,...draft,segments,originDate:session?.draft.originDate || dateKey(started || new Date()),originTime:session?.draft.originTime || timeString(started || new Date())}};
     }
     async function beginSession(kind) {
       if (!workbench.isDirectory()) return;
@@ -3221,18 +3364,71 @@ let checkpointBusy = false;
       delete sessionIds[kind];delete sessionRuns[kind];
     }
     async function checkpointSessions() {
-      if (!workbench.isDirectory() || checkpointBusy || workbench.isPending() || !Object.keys(sessionIds).length) return;
+      if ((!workbench.isDirectory()&&!sessionIds.flow) || checkpointBusy || workbench.isPending() || !Object.keys(sessionIds).length) return;
       checkpointBusy=true;
       const snapshots=Object.fromEntries(Object.entries(sessionIds).map(([kind,id])=>[id,sessionSnapshot(kind)]));
-      try {await workbench.controller.commit(w=>{for(const s of w.sessions)if(snapshots[s.id]){Object.assign(s,snapshots[s.id]);s.checkpointAt=new Date().toISOString();}return w;});}
-      catch(e){get('storage-detail').textContent='计时检查点未保存：'+e.message;}
+      try {await workbench.controller.commit(w=>{for(const s of w.sessions)if(snapshots[s.id]){Object.assign(s,snapshots[s.id]);s.checkpointAt=new Date().toISOString();}return w;});if(sessionIds.flow&&!flowFinishBusy){const saved=workbench.controller.getWorkspace().sessions.find(s=>s.id===sessionIds.flow);get('flow-save-state').textContent='开始时间已保存：'+formatFlowTimestamp(flowStartTime(saved))+'\n最近成功检查点：'+formatFlowTimestamp(Date.parse(saved.checkpointAt));}}
+      catch(e){get('storage-detail').textContent='计时检查点未保存：'+e.message;if(sessionIds.flow){const saved=workbench.controller.getWorkspace().sessions.find(s=>s.id===sessionIds.flow);get('flow-save-state').textContent='心流检查点未保存，请重试或导出。'+e.message+'\n'+(saved?.elapsedMs>0?'最近成功检查点：'+formatFlowTimestamp(Date.parse(saved.checkpointAt)):'暂无后续成功检查点；开始时间仍已保留。');}}
       finally{checkpointBusy=false;}
     }
+    function formatFlowTimestamp(ms){
+      const d=new Date(ms);return dateKey(d)+' '+timeString(d)+':'+String(d.getSeconds()).padStart(2,'0')+'.'+String(d.getMilliseconds()).padStart(3,'0');
+    }
+    function freezeFlowBackground(value){
+      for(const selector of ['main','body > header','.main-nav']){const node=document.querySelector(selector);if(node)node.inert=value;}
+    }
+    function createFlowRecoveryDialog(){
+      const dialog=document.createElement('dialog');dialog.className='flow-recovery-dialog';
+      dialog.innerHTML='<form class="dialog-body" id="flow-recovery-form" novalidate><h2 tabindex="-1" id="flow-recovery-heading">确认上次心流的实际结束时间</h2><p id="flow-recovery-context"></p><p>本次按开始时间至你确认的结束时间计算，包含关闭页面期间；最后检查点仅供参考。结束时间须晚于开始时间，不能生成零时长记录。</p><label>实际结束日期与时间<input id="flow-recovery-end" type="datetime-local" step="0.001" required></label><p id="flow-recovery-preview"></p><p id="flow-recovery-error" role="status"></p><div class="dialog-actions"><button class="primary" id="flow-confirm-save" type="submit">确认结束并保存记录</button><button type="button" id="flow-recovery-access">重新连接</button><button type="button" id="flow-recovery-export">导出待保存数据</button></div></form>';
+      dialog.addEventListener('cancel',event=>{event.preventDefault();event.stopImmediatePropagation?.();},true);
+      dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();}},true);
+      dialog.addEventListener('close',()=>{if(workbench.controller.getWorkspace()?.sessions.some(s=>s.kind==='flow'&&!Object.values(sessionIds).includes(s.id)))queueMicrotask(()=>renderFlowRecovery());});
+      dialog.addEventListener('click',event=>{if(event.target===dialog)event.preventDefault();});
+      document.body.append(dialog);
+      get('flow-recovery-end').oninput=previewAbnormalFlow;
+      get('flow-recovery-form').onsubmit=event=>{event.preventDefault();confirmAbnormalFlow();};
+      get('flow-recovery-export').onclick=()=>{workbench.exportCurrentSnapshot();get('flow-recovery-error').textContent='副本已导出；仍需确认并成功保存结束时间。';};
+      get('flow-recovery-access').onclick=async()=>{try{await workbench.requestSourceAccess();get('flow-recovery-error').textContent='授权已请求，请重试保存。';}catch(e){get('flow-recovery-error').textContent=e.message;}};
+      return dialog;
+    }
+    function previewAbnormalFlow(){
+      const session=workbench.controller.getWorkspace().sessions.find(s=>s.id===flowRecoveryDialog.dataset.sessionId);
+      if(!session)return;
+      try{const end=Date.parse(get('flow-recovery-end').value);validateFlowEnd(session,end,Date.now());const seconds=Math.floor((end-flowStartTime(session))/1000);get('flow-recovery-preview').textContent='本次计入：'+Math.floor(seconds/3600)+'小时'+Math.floor(seconds%3600/60)+'分钟'+(seconds%60)+'秒';get('flow-recovery-error').textContent='';}
+      catch(e){get('flow-recovery-preview').textContent='';get('flow-recovery-error').textContent=e.message;}
+    }
+    function renderFlowRecovery(){
+      const w=workbench.controller.getWorkspace();const session=w.sessions.find(s=>s.kind==='flow'&&!Object.values(sessionIds).includes(s.id));
+      if(!session){if(flowRecoveryDialog.open)flowRecoveryDialog.close();freezeFlowBackground(false);return;}
+      freezeFlowBackground(true);
+      if(flowRecoveryDialog.dataset.sessionId!==session.id){
+        flowRecoveryDialog.dataset.sessionId=session.id;get('flow-confirm-save').textContent='确认结束并保存记录';get('flow-confirm-save').disabled=false;get('flow-recovery-end').value='';get('flow-recovery-preview').textContent='';get('flow-recovery-error').textContent='';get('flow-recovery-end').disabled=false;get('flow-recovery-end').focus();
+        const owner=w.profiles.find(p=>p.id===session.profileId);
+        get('flow-recovery-context').textContent='用户：'+owner.name+' · 项目：'+(session.draft.project||'旧版未填写项目')+'\n开始：'+formatFlowTimestamp(flowStartTime(session))+(Number.isFinite(session.draft.startedAt)?'':'（旧版起点按原分段或分钟信息读取）')+'\n'+(session.elapsedMs>0?'最后成功检查点：'+formatFlowTimestamp(Date.parse(session.checkpointAt)):'暂无后续成功检查点');
+      }
+      get('flow-recovery-access').hidden=workbench.controller.getSource().mode!=='directory';
+      if(!flowRecoveryDialog.open){flowRecoveryDialog.showModal();get('flow-recovery-end').focus();}
+    }
+    async function confirmAbnormalFlow(){
+      if(flowRecoveryBusy)return;
+      const id=flowRecoveryDialog.dataset.sessionId,session=workbench.controller.getWorkspace().sessions.find(s=>s.id===id);
+      let endAt,failed=false;
+      try{endAt=Date.parse(get('flow-recovery-end').value);if(session)validateFlowEnd(session,endAt,Date.now());}
+      catch(e){get('flow-recovery-error').textContent=e.message;get('flow-confirm-save').textContent='确认结束并保存记录';get('flow-recovery-end').focus();return;}
+      try{
+        flowRecoveryBusy=true;get('flow-recovery-end').disabled=true;get('flow-confirm-save').disabled=true;get('flow-confirm-save').textContent='正在保存工作记录…';get('flow-recovery-error').textContent='正在保存工作记录…';
+        await settleDurableFlow(workbench.controller,id,{endAt,now:Date.now(),recordDraft:{title:'心流：异常结束确认',outcome:'用户确认实际结束时间，按完整跨度计入（含退出期间）。'},draftTasks:session?.draft.tasks||[]});
+        workbench.sync();get('flow-save-state').textContent='上次心流已记录';renderFlowRecovery();
+      }catch(e){failed=true;get('flow-recovery-error').textContent='记录尚未保存，请重试或导出待保存数据。'+e.message;get('flow-confirm-save').textContent='重试保存';}
+      finally{flowRecoveryBusy=false;get('flow-confirm-save').disabled=false;get('flow-recovery-end').disabled=!!workbench.controller.getPending()?.settledSessionIds.includes(id);if(failed){if(get('flow-recovery-end').disabled){get('flow-recovery-error').textContent+=' 将使用已提交的结束时间核对重试。';get('flow-confirm-save').focus();}else get('flow-recovery-end').focus();}}
+    }
+    let flowRecoveryBusy=false;
+    const flowRecoveryDialog=createFlowRecoveryDialog();
     window.setInterval(checkpointSessions,15000);
     const recoveryBox=document.createElement('section');recoveryBox.className='session-recovery';get('data-dialog').querySelector('.data-enhancements').append(recoveryBox);
     function renderSessionRecovery(){
       recoveryBox.replaceChildren();
-      for(const session of workbench.controller.getWorkspace().sessions.filter(s=>!Object.values(sessionIds).includes(s.id))){
+      for(const session of workbench.controller.getWorkspace().sessions.filter(s=>s.kind!=='flow'&&!Object.values(sessionIds).includes(s.id))){
         const text=document.createElement('p');text.textContent='有待恢复的'+({flow:'心流',meeting:'会议',task:'任务追踪'}[session.kind])+'：'+Math.round(session.elapsedMs/1000)+'秒，关闭期间不计时。';recoveryBox.append(text);
         const resume=document.createElement('button');resume.textContent='恢复计时';resume.onclick=async()=>{
           if(flowStartedAt||meetingStartedAt||taskTracking||meetingDraft){toast('请先结束当前计时');return;}
@@ -3249,7 +3445,9 @@ let checkpointBusy = false;
       }
     }
     renderSessionRecovery();
-    if(workbench.controller.getWorkspace().sessions.length){dataDialog.showModal();toast('发现上次计时检查点，请恢复或放弃。');}
+    renderFlowRecovery();
+    updateFlowStartControls();
+    if(workbench.controller.getWorkspace().sessions.some(s=>s.kind!=='flow')&&!workbench.controller.getWorkspace().sessions.some(s=>s.kind==='flow')){dataDialog.showModal();toast('发现上次计时检查点，请恢复或放弃。');}
 
 return {};
 })();</script>

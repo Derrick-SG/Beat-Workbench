@@ -52,5 +52,11 @@ test('failed pending save blocks new data clicks while allowing recovery control
 
 test('browser flow auto-completion at beforeunload requests protection after creating async dirty data',()=>{
   const source=readFileSync('src/app.js','utf8'),code=source.match(/    function completeFlowOnPageExit\(event\)[\s\S]*?\n    }/)[0];let dirty=false,completed=0;
-  const c=vm.createContext({workbench:{isDirectory:()=>false,isPending:()=>dirty},completeFlow:()=>{dirty=true;completed++;}});vm.runInContext(code,c);let prevented=false;const event={type:'beforeunload',preventDefault(){prevented=true;}};c.completeFlowOnPageExit(event);assert.equal(completed,1);assert.equal(prevented,true);
+  const c=vm.createContext({sessionIds:{},workbench:{isDirectory:()=>false,isPending:()=>dirty},completeFlow:()=>{dirty=true;completed++;}});vm.runInContext(code,c);let prevented=false;const event={type:'beforeunload',preventDefault(){prevented=true;}};c.completeFlowOnPageExit(event);assert.equal(completed,1);assert.equal(prevented,true);
+});
+
+test('slow checkpoint never makes flow recovery and navigation clicks inaccessible',()=>{
+  const code=boot.match(/  function blockWorkspaceMutation\(event\)[\s\S]*?\n  }/)[0];
+  const c=vm.createContext({pending:false,profileBusy:false,sourceBusy:false,controller:{getState:()=>({phase:'saving'}),getPending:()=>({sessions:[]})}});vm.runInContext(code,c);
+  for(const id of ['open-data-dialog','close-data-dialog','flow-data-recovery','leave-flow-mode','retry-save']){let blocked=false;c.blockWorkspaceMutation({target:{closest:selector=>selector.includes('#'+id)?{}:null},preventDefault(){blocked=true;},stopImmediatePropagation(){}});assert.equal(blocked,false,id+' must remain available');}
 });

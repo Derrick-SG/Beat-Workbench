@@ -865,3 +865,9 @@
 .data-enhancements [hidden] { display:none!important; }
 .draft-choice button { min-height:44px;padding:8px 12px;margin:6px;border-radius:10px;border:1px solid #bdcee1; }
 .user-row>div { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+
+.flow-recovery-dialog { width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 40px);overflow:auto; }
+.flow-recovery-dialog p { white-space:pre-line;margin:10px 0;line-height:1.6; }
+.flow-recovery-dialog input { background:#fff;min-height:44px; }
+.flow-recovery-dialog button { min-height:44px; }
+#flow-save-state { white-space:pre-line;line-height:1.6; }

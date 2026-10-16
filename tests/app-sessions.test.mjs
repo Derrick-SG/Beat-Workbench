@@ -7,13 +7,13 @@ import {segmentHours,recordsInRange,splitTimeSegments} from '../src/model/time.j
 
 test('production timer wrappers checkpoint and restore only actual work segments for all timer kinds',async()=>{
   const source=readFileSync('src/app.js','utf8');
-  const names=['sessionSnapshot','beginSession','applySessionRecord','checkpointSessions','dateKey','timeString'];
+  const names=['sessionSnapshot','beginSession','applySessionRecord','checkpointSessions','formatFlowTimestamp','dateKey','timeString'];
   const code=names.map(name=>source.match(new RegExp('    (?:async )?function '+name+'\\([\\s\\S]*?\\n    }'))[0]).join('\n');
   for(const kind of ['flow','meeting','task']){
     let now=new Date('2026-10-09T09:00:00').getTime(),w=newWorkspace();
     class Clock extends Date {constructor(value){super(value===undefined?now:value);}static now(){return now;}}
     const controller={getWorkspace:()=>structuredClone(w),commit:async fn=>{w=validateWorkspace(fn(structuredClone(w)));}};
-    const c=vm.createContext({Date:Clock,globalThis:{crypto:{randomUUID:()=>kind+'-session'}},workbench:{isDirectory:()=>true,isPending:()=>false,controller},sessionIds:{},sessionRuns:{},checkpointBusy:false,activeProfileId:w.activeProfileId,flowStartedAt:kind==='flow'?new Clock():null,meetingStartedAt:kind==='meeting'?new Clock():null,taskTracking:kind==='task'?{project:'A',startedAt:new Clock()}:null,meetingDraft:null,flowDraftTasks:[],meetingDraftTasks:[],get:id=>({value:id.includes('category')?'项目推进':'A'}),toast:()=>{},segmentHours,splitTimeSegments});
+    const c=vm.createContext({Date:Clock,globalThis:{crypto:{randomUUID:()=>kind+'-session'}},workbench:{isDirectory:()=>true,isPending:()=>false,controller},sessionIds:{},sessionRuns:{},checkpointBusy:false,flowFinishBusy:false,flowStartTime:s=>s.draft.segments[0]?.start||now,activeProfileId:w.activeProfileId,flowStartedAt:kind==='flow'?new Clock():null,meetingStartedAt:kind==='meeting'?new Clock():null,taskTracking:kind==='task'?{project:'A',startedAt:new Clock()}:null,meetingDraft:null,flowDraftTasks:[],meetingDraftTasks:[],get:id=>({value:id.includes('category')?'项目推进':'A'}),toast:()=>{},segmentHours,splitTimeSegments});
     vm.runInContext(code,c);await c.beginSession(kind);now+=15000;await c.checkpointSessions();
     const saved=structuredClone(w.sessions[0]);assert.equal(saved.elapsedMs,15000);
     now+=3600000;c.sessionRuns[kind]={start:now,prior:saved.draft.segments,restored:true};
