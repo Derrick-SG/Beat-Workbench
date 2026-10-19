@@ -3,6 +3,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+export function stampVersion(html,version){
+  if(!/^\d+\.\d+\.\d+$/.test(version))throw Error('Invalid package version');
+  const badge=/(<span\b[^>]*\bid="app-version"[^>]*>)[^<]*(<\/span>)/g;
+  if([...html.matchAll(badge)].length!==1)throw Error('Source entry must contain exactly one version badge');
+  return html.replace(badge,(_,start,end)=>start+'V'+version+end);
+}
 export async function bundleModule(entry) {
   const emitted=new Set(),visiting=new Set(),parts=['const __modules = {};'];
   async function visit(id){
@@ -26,7 +32,10 @@ export async function bundleModule(entry) {
   await visit(entry);return parts.join('\n');
 }
 export async function build() {
-  const [html, css, js] = await Promise.all([readFile(path.join(root,'src/index.html'),'utf8'),readFile(path.join(root,'src/styles.css'),'utf8'),bundleModule('src/app.js')]);
+  const [sourceHtml, css, js, metadata] = await Promise.all([readFile(path.join(root,'src/index.html'),'utf8'),readFile(path.join(root,'src/styles.css'),'utf8'),bundleModule('src/app.js'),readFile(path.join(root,'package.json'),'utf8')]);
+  const html=stampVersion(sourceHtml,JSON.parse(metadata).version);
+  // Keep the source served by the existing local server and standalone output in sync.
+  if(html!==sourceHtml)await writeFile(path.join(root,'src/index.html'),html,'utf8');
   const styleTag = '<link rel="stylesheet" href="./styles.css">';
   const scriptTag = '<script type="module" src="./app.js"></script>';
   if (html.split(styleTag).length !== 2 || html.split(scriptTag).length !== 2) throw new Error('Source entry must contain exactly one stylesheet and application module reference.');
