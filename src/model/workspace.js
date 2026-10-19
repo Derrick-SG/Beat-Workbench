@@ -19,6 +19,7 @@ export function validateWorkspace(value) {
   if (value.schemaVersion!==1) throw storageError('unsupported','不支持此目录数据版本');
   if (typeof value.workspaceId!=='string' || !value.workspaceId || !Number.isSafeInteger(value.revision) || value.revision<0 || !Number.isFinite(Date.parse(value.updatedAt)) || !Array.isArray(value.profiles) || !value.profiles.length || !Array.isArray(value.sessions) || !Array.isArray(value.settledSessionIds)) throw storageError('invalid','工作台结构无效');
   const ids=new Set(), names=new Set();
+  if(value.flowClosures!==undefined&&(!Array.isArray(value.flowClosures)||value.flowClosures.some(r=>!r||typeof r.sessionId!=='string'||typeof r.profileId!=='string'||!Number.isFinite(r.startedAt)||!Number.isFinite(Date.parse(r.checkpointAt))||r.elapsedMs!==0||r.reason!=='no-positive-checkpoint')))throw storageError('invalid','心流零时长结束凭据无效');
   for (const p of value.profiles) {
     if (!p || typeof p.id!=='string' || !p.id || ids.has(p.id) || typeof p.name!=='string' || !p.name.trim() || p.name.length>30 || names.has(p.name) || !Array.isArray(p.records) || !Array.isArray(p.tasks)) throw storageError('invalid','工作区资料无效或重复');
     validateAvatarShape(p.avatar); ids.add(p.id); names.add(p.name);

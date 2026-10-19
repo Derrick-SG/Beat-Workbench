@@ -1,4 +1,4 @@
-import { createFlowStartIntent, startDurableFlow, settleDurableFlow, flowStartTime, validateFlowEnd } from './timers/sessions.js';
+import { createFlowStartIntent, startDurableFlow, updateDurableFlowProject, settleDurableFlow, settleCheckpointFlow, flowStartTime, validateFlowEnd } from './timers/sessions.js';
 import { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming } from './model/time.js';
 import { initializeWorkbench } from './bootstrap.js';
 import { parseProfileBackup, makeProfileBackup } from './model/workspace.js';
@@ -956,15 +956,22 @@ let checkpointBusy = false;
     }
     async function startFlowMode() {
       switchFeaturePanel('flow-mode',true);updateFlowStartControls();updateFlowControls();
+      if(flowStartedAt||flowStartBusy||flowFinishBusy)return;
+      await startSelectedFlow();
+    }
+    async function startFlowFromProjectSelection(){
+      syncFlowProjectTasks();
+      if(!flowStartedAt||flowFinishBusy)return;
+      try{await updateDurableFlowProject(workbench.controller,sessionIds.flow,get('flow-project').value);get('flow-save-state').textContent='所属项目已保存，起点与计时保持不变。';workbench.sync();}
+      catch(e){get('flow-save-state').textContent='项目尚未保存，请重试或导出。'+e.message;}
+      updateFlowStartControls();
     }
     function updateFlowStartControls(){
-      get('start-flow-session').hidden=!!flowStartedAt;
-      get('start-flow-session').disabled=flowStartBusy||!get('flow-project').value.trim();
-      get('start-flow-session').textContent=flowStartBusy?'正在保存开始时间…':flowStartIntent?'重试开始':'开始心流';
-      get('flow-project').disabled=flowStartBusy||!!flowStartedAt||!!flowStartIntent;
-      get('complete-flow-session').disabled=!flowStartedAt||flowFinishBusy;
-      get('complete-flow-session').textContent=flowFinishBusy?'正在保存工作记录…':flowFinishIntent?'重试保存':'✓ 完成工作并记录';
-      get('flow-live-label').textContent=flowStartedAt?'正在专注':'尚未开始';
+      const button=get('start-flow-session');button.hidden=false;
+      button.disabled=flowStartBusy||flowFinishBusy;
+      button.textContent=flowStartBusy?'正在保存开始时间…':flowFinishBusy?'正在保存工作记录…':flowStartedAt?(flowFinishIntent?'重试保存':'完成并保存'):(flowStartIntent?'重试开始':'开始心流');
+      get('flow-project').disabled=flowStartBusy||flowFinishBusy||(!flowStartedAt&&!!flowStartIntent);
+      get('flow-live-label').textContent=flowStartedAt?'正在计时：'+(get('flow-project').value.trim()||'未选择项目'):'尚未开始';
     }
     async function startSelectedFlow(){
       if(flowStartBusy||flowStartedAt)return;
@@ -974,7 +981,7 @@ let checkpointBusy = false;
         if(!flowStartIntent)flowStartIntent=createFlowStartIntent(w.workspaceId,activeProfileId,get('flow-project').value,Date.now());
         flowStartBusy=true;updateFlowStartControls();get('flow-save-state').textContent='正在保存开始时间…';
         const session=await startDurableFlow(workbench.controller,flowStartIntent,{category:get('flow-category').value,tasks:flowDraftTasks});
-        if(startingEpoch!==flowPageEpoch){flowStartIntent=null;workbench.sync();get('flow-save-state').textContent='检测到页面退出，请确认上次心流结束时间。';return;}
+        if(startingEpoch!==flowPageEpoch){flowStartIntent=null;workbench.sync();get('flow-save-state').textContent='检测到页面退出，将按最后成功检查点自动保存。';return;}
         sessionIds.flow=session.id;sessionRuns.flow={start:flowStartTime(session),prior:[]};flowStartedAt=new Date(flowStartTime(session));clearFlowTimer();flowTimer=window.setInterval(updateFlowControls,1000);
         workbench.sync();get('flow-save-state').textContent=(workbench.temporary?'临时会话：关闭后无法保证恢复。':'开始时间已保存。')+' '+formatFlowTimestamp(flowStartTime(session));updateFlowControls();
       }catch(e){get('flow-save-state').textContent='开始时间未保存，心流尚未启动。'+e.message;}
@@ -982,10 +989,11 @@ let checkpointBusy = false;
     }
     async function completePersistedFlow(){
       if(flowFinishBusy)return 'saving';
+      if(!get('flow-project').value.trim()){get('flow-save-state').textContent='请补选所属项目，已计时间仍保留。';get('flow-project').focus();return 'missing-project';}
       try{
         if(!flowFinishIntent){const endAt=Date.now();sessionRuns.flow.end=endAt;const taskList=taskSummary(flowDraftTasks);flowFinishIntent={endAt,now:endAt,segments:sessionSnapshot('flow').draft.segments,recordDraft:{title:flowTaskTitle(taskList),category:get('flow-category').value,outcome:taskList?'心流完成任务：\n'+taskList:'已完成一次心流专注工作。'},draftTasks:structuredClone(flowDraftTasks)};clearFlowTimer();}
         flowFinishBusy=true;updateFlowStartControls();get('flow-save-state').textContent='正在保存工作记录…';
-        await settleDurableFlow(workbench.controller,sessionIds.flow,flowFinishIntent);
+        await settleDurableFlow(workbench.controller,sessionIds.flow,{...flowFinishIntent,project:get('flow-project').value});
         delete sessionIds.flow;delete sessionRuns.flow;flowStartedAt=null;flowStartIntent=null;flowFinishIntent=null;flowDraftTasks=[];get('flow-form').reset();workbench.sync();renderDraftTasks('flow');updateFlowControls();get('flow-save-state').textContent='心流工作已保存。';switchFeaturePanel('work-records',true);toast('心流工作已完成并保存。');return 'saved';
       }catch(e){get('flow-save-state').textContent='记录尚未保存，请重试或打开保存状态导出副本。'+e.message;if(!workbench.controller.getPending()){flowFinishIntent=null;if(sessionRuns.flow)delete sessionRuns.flow.end;clearFlowTimer();flowTimer=window.setInterval(updateFlowControls,1000);}return 'save-failed';}
       finally{flowFinishBusy=false;updateFlowStartControls();}
@@ -998,7 +1006,7 @@ let checkpointBusy = false;
       if (!flowStartedAt) return 'inactive';
       const project = get('flow-project').value.trim();
       if (!project) return 'missing-project';
-      const durable=workbench.controller.getWorkspace().sessions.find(s=>s.id===sessionIds.flow&&s.draft.recoveryPolicy==='confirm-end');
+      const durable=workbench.controller.getWorkspace().sessions.find(s=>s.id===sessionIds.flow&&['confirm-end','checkpoint-end'].includes(s.draft.recoveryPolicy));
       if(durable)return completePersistedFlow();
       const startedAt = flowStartedAt;
       const endedAt = new Date();
@@ -1047,6 +1055,7 @@ let checkpointBusy = false;
     }
     get('flow-form').addEventListener('submit', async (event) => {
       event.preventDefault();
+      if(!flowStartedAt){await startSelectedFlow();return;}
       const result = await completeFlow();
       if (result === 'inactive') toast('请重新进入心流模式后开始计时。');
       if (result === 'missing-project') toast('请填写本次心流所属项目。');
@@ -1107,9 +1116,8 @@ let checkpointBusy = false;
     get('project').addEventListener('input', renderPendingTasks);
     get('project').addEventListener('change', renderPendingTasks);
     get('flow-project').addEventListener('input',()=>{syncFlowProjectTasks();updateFlowStartControls();});
-    get('start-flow-session').addEventListener('click',startSelectedFlow);
     get('flow-data-recovery').addEventListener('click',()=>get('open-data-dialog').click());
-    get('flow-project').addEventListener('change', syncFlowProjectTasks);
+    get('flow-project').addEventListener('change', startFlowFromProjectSelection);
     get('task-center-form').addEventListener('submit', (event) => {
       event.preventDefault();
       const project = get('task-center-project').value.trim();
@@ -1409,7 +1417,7 @@ let checkpointBusy = false;
     get('open-flow-mode').addEventListener('click', startFlowMode);
     get('leave-flow-mode').addEventListener('click', () => {
       switchFeaturePanel('work-entry', true);
-      toast('已暂离心流，计时仍在继续；可再次点击“心流模式”返回。');
+      toast(flowStartedAt?'已暂离心流，计时仍在继续；可再次点击“心流模式”返回。':'已返回工作录入，心流尚未开始。');
     });
     document.querySelectorAll('.nav-button').forEach((button) => {
       if (button.closest('.nav-menu') || button.id === 'open-flow-mode') return;
@@ -1645,6 +1653,12 @@ let checkpointBusy = false;
     renderProfiles();
     render();
 
+    function hasWorkFormChanges(){
+      const record=editingId?logs.find(item=>item.id===editingId):null;
+      const fields=[['title','title'],['project','project'],['category','category'],['work-date','workDate'],['start-time','startTime'],['end-time','endTime'],['progress','progress'],['outcome','outcome'],['next-step','nextStep'],['pain-point','painPoint'],['pain-solution','painSolution'],['pain-response','painResponse']];
+      if(record)return fields.some(([id,key])=>get(id).value.trim()!==String(key==='category'?normalizeCategory(record[key]):record[key]??''))||document.querySelector('input[name="pain-status"]:checked').value!==(record.painStatus||'已解决');
+      return fields.filter(([id])=>['title','outcome','next-step','pain-point','pain-solution','pain-response'].includes(id)).some(([id])=>get(id).value.trim());
+    }
     workbench.bind({
       refresh(workspace) {
         if(flowStartIntent&&flowStartIntent.workspaceId!==workspace.workspaceId){flowStartIntent=null;}
@@ -1655,10 +1669,10 @@ let checkpointBusy = false;
         render(); renderProfiles();
         if(document.querySelector('.session-recovery')){renderSessionRecovery();renderFlowRecovery();}
       },
+      hasFormDraft:hasWorkFormChanges,discardFormDraft:resetWorkForm,
       timerGuard: () => Boolean(flowStartedAt || meetingStartedAt || taskTracking || meetingDraft),
       formGuard: () => {
-        const form = get('work-form');
-        const dirty = form && [...form.querySelectorAll('input,textarea')].some(x => ['title','outcome','next-step','pain-point'].includes(x.id) && x.value.trim());
+        const dirty=hasWorkFormChanges();
         if (dirty && !confirm('工作表单尚未保存。放弃修改并切换数据来源？')) return false;
         if (dirty) resetWorkForm(); return true;
       }
@@ -1705,56 +1719,47 @@ let checkpointBusy = false;
     function formatFlowTimestamp(ms){
       const d=new Date(ms);return dateKey(d)+' '+timeString(d)+':'+String(d.getSeconds()).padStart(2,'0')+'.'+String(d.getMilliseconds()).padStart(3,'0');
     }
-    function freezeFlowBackground(value){
-      for(const selector of ['main','body > header','.main-nav']){const node=document.querySelector(selector);if(node)node.inert=value;}
+    function createFlowRecoveryBox(){
+      const box=document.createElement('section');box.className='storage-startup session-recovery flow-checkpoint-recovery';box.hidden=true;box.setAttribute('aria-live','polite');document.body.prepend(box);return box;
     }
-    function createFlowRecoveryDialog(){
-      const dialog=document.createElement('dialog');dialog.className='flow-recovery-dialog';
-      dialog.innerHTML='<form class="dialog-body" id="flow-recovery-form" novalidate><h2 tabindex="-1" id="flow-recovery-heading">确认上次心流的实际结束时间</h2><p id="flow-recovery-context"></p><p>本次按开始时间至你确认的结束时间计算，包含关闭页面期间；最后检查点仅供参考。结束时间须晚于开始时间，不能生成零时长记录。</p><label>实际结束日期与时间<input id="flow-recovery-end" type="datetime-local" step="0.001" required></label><p id="flow-recovery-preview"></p><p id="flow-recovery-error" role="status"></p><div class="dialog-actions"><button class="primary" id="flow-confirm-save" type="submit">确认结束并保存记录</button><button type="button" id="flow-recovery-access">重新连接</button><button type="button" id="flow-recovery-export">导出待保存数据</button></div></form>';
-      dialog.addEventListener('cancel',event=>{event.preventDefault();event.stopImmediatePropagation?.();},true);
-      dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();}},true);
-      dialog.addEventListener('close',()=>{if(workbench.controller.getWorkspace()?.sessions.some(s=>s.kind==='flow'&&!Object.values(sessionIds).includes(s.id)))queueMicrotask(()=>renderFlowRecovery());});
-      dialog.addEventListener('click',event=>{if(event.target===dialog)event.preventDefault();});
-      document.body.append(dialog);
-      get('flow-recovery-end').oninput=previewAbnormalFlow;
-      get('flow-recovery-form').onsubmit=event=>{event.preventDefault();confirmAbnormalFlow();};
-      get('flow-recovery-export').onclick=()=>{workbench.exportCurrentSnapshot();get('flow-recovery-error').textContent='副本已导出；仍需确认并成功保存结束时间。';};
-      get('flow-recovery-access').onclick=async()=>{try{await workbench.requestSourceAccess();get('flow-recovery-error').textContent='授权已请求，请重试保存。';}catch(e){get('flow-recovery-error').textContent=e.message;}};
-      return dialog;
-    }
-    function previewAbnormalFlow(){
-      const session=workbench.controller.getWorkspace().sessions.find(s=>s.id===flowRecoveryDialog.dataset.sessionId);
-      if(!session)return;
-      try{const end=Date.parse(get('flow-recovery-end').value);validateFlowEnd(session,end,Date.now());const seconds=Math.floor((end-flowStartTime(session))/1000);get('flow-recovery-preview').textContent='本次计入：'+Math.floor(seconds/3600)+'小时'+Math.floor(seconds%3600/60)+'分钟'+(seconds%60)+'秒';get('flow-recovery-error').textContent='';}
-      catch(e){get('flow-recovery-preview').textContent='';get('flow-recovery-error').textContent=e.message;}
+    function pendingRecoveryFlows(){
+      return workbench.controller.getWorkspace().sessions.filter(s=>s.kind==='flow'&&!Object.values(sessionIds).includes(s.id)&&!(flowStartBusy&&flowStartIntent?.id===s.id));
     }
     function renderFlowRecovery(){
-      const w=workbench.controller.getWorkspace();const session=w.sessions.find(s=>s.kind==='flow'&&!Object.values(sessionIds).includes(s.id));
-      if(!session){if(flowRecoveryDialog.open)flowRecoveryDialog.close();freezeFlowBackground(false);return;}
-      freezeFlowBackground(true);
-      if(flowRecoveryDialog.dataset.sessionId!==session.id){
-        flowRecoveryDialog.dataset.sessionId=session.id;get('flow-confirm-save').textContent='确认结束并保存记录';get('flow-confirm-save').disabled=false;get('flow-recovery-end').value='';get('flow-recovery-preview').textContent='';get('flow-recovery-error').textContent='';get('flow-recovery-end').disabled=false;get('flow-recovery-end').focus();
-        const owner=w.profiles.find(p=>p.id===session.profileId);
-        get('flow-recovery-context').textContent='用户：'+owner.name+' · 项目：'+(session.draft.project||'旧版未填写项目')+'\n开始：'+formatFlowTimestamp(flowStartTime(session))+(Number.isFinite(session.draft.startedAt)?'':'（旧版起点按原分段或分钟信息读取）')+'\n'+(session.elapsedMs>0?'最后成功检查点：'+formatFlowTimestamp(Date.parse(session.checkpointAt)):'暂无后续成功检查点');
-      }
-      get('flow-recovery-access').hidden=workbench.controller.getSource().mode!=='directory';
-      if(!flowRecoveryDialog.open){flowRecoveryDialog.showModal();get('flow-recovery-end').focus();}
+      if(flowRecoveryBusy)return flowRecoveryPromise;
+      const w=workbench.controller.getWorkspace(),flows=pendingRecoveryFlows();
+      if(!flows.length){flowRecoveryBox.hidden=true;return;}
+      const key=w.workspaceId+':'+w.revision+':'+flows.map(s=>s.id).join(',');
+      if(key===flowRecoveryAttempt)return flowRecoveryPromise;
+      flowRecoveryAttempt=key;flowRecoveryPromise=recoverCheckpointFlows();return flowRecoveryPromise;
     }
-    async function confirmAbnormalFlow(){
+    async function recoverCheckpointFlows(){
       if(flowRecoveryBusy)return;
-      const id=flowRecoveryDialog.dataset.sessionId,session=workbench.controller.getWorkspace().sessions.find(s=>s.id===id);
-      let endAt,failed=false;
-      try{endAt=Date.parse(get('flow-recovery-end').value);if(session)validateFlowEnd(session,endAt,Date.now());}
-      catch(e){get('flow-recovery-error').textContent=e.message;get('flow-confirm-save').textContent='确认结束并保存记录';get('flow-recovery-end').focus();return;}
+      flowRecoveryBusy=true;flowRecoveryBox.hidden=false;flowRecoveryBox.replaceChildren();
+      const workspaceId=workbench.controller.getWorkspace().workspaceId,flows=pendingRecoveryFlows();let saved=0,empty=0;const errors=[];
       try{
-        flowRecoveryBusy=true;get('flow-recovery-end').disabled=true;get('flow-confirm-save').disabled=true;get('flow-confirm-save').textContent='正在保存工作记录…';get('flow-recovery-error').textContent='正在保存工作记录…';
-        await settleDurableFlow(workbench.controller,id,{endAt,now:Date.now(),recordDraft:{title:'心流：异常结束确认',outcome:'用户确认实际结束时间，按完整跨度计入（含退出期间）。'},draftTasks:session?.draft.tasks||[]});
-        workbench.sync();get('flow-save-state').textContent='上次心流已记录';renderFlowRecovery();
-      }catch(e){failed=true;get('flow-recovery-error').textContent='记录尚未保存，请重试或导出待保存数据。'+e.message;get('flow-confirm-save').textContent='重试保存';}
-      finally{flowRecoveryBusy=false;get('flow-confirm-save').disabled=false;get('flow-recovery-end').disabled=!!workbench.controller.getPending()?.settledSessionIds.includes(id);if(failed){if(get('flow-recovery-end').disabled){get('flow-recovery-error').textContent+=' 将使用已提交的结束时间核对重试。';get('flow-confirm-save').focus();}else get('flow-recovery-end').focus();}}
+        get('flow-save-state').textContent='正在按最后成功检查点自动保存上次心流…';
+        for(const session of flows){
+          if(Object.values(sessionIds).includes(session.id))continue;
+          try{
+            if(workbench.controller.getWorkspace().workspaceId!==workspaceId)throw Error('数据来源已变化，请重新读取');
+            const result=await settleCheckpointFlow(workbench.controller,session.id,Date.now());
+            if(result.status==='saved')saved++;if(result.status==='empty')empty++;
+          }catch(e){errors.push('会话 '+session.id+'：'+e.message);}
+        }
+        const message=(saved?'已按成功检查点保存 '+saved+' 条心流，不计关闭后间隔。':'')+(empty?' '+empty+' 条心流尚无正时长检查点，起点与零时长结束凭据已保留，未生成工时。':'');
+        const status=document.createElement('p');status.textContent=message+(errors.length?' 自动结算尚未完成，原会话仍保留。'+errors.join('；'):'');flowRecoveryBox.append(status);get('flow-save-state').textContent=status.textContent;
+        if(errors.length){
+          const retry=document.createElement('button');retry.type='button';retry.textContent='重试自动保存';retry.onclick=()=>{flowRecoveryAttempt='';return renderFlowRecovery();};
+          const exportButton=document.createElement('button');exportButton.type='button';exportButton.textContent='导出全工作台待保存数据';exportButton.onclick=()=>workbench.exportCurrentSnapshot();
+          const access=document.createElement('button');access.type='button';access.textContent='保存状态 / 重新授权';access.onclick=()=>get('open-data-dialog').click();flowRecoveryBox.append(retry,exportButton,access);
+          get('storage-other-actions').open=true;
+        }else{flowRecoveryBox.hidden=true;if(message)toast(message);}
+        workbench.sync();
+      }finally{flowRecoveryBusy=false;}
     }
-    let flowRecoveryBusy=false;
-    const flowRecoveryDialog=createFlowRecoveryDialog();
+    let flowRecoveryBusy=false,flowRecoveryAttempt='',flowRecoveryPromise=null;
+    const flowRecoveryBox=createFlowRecoveryBox();
     window.setInterval(checkpointSessions,15000);
     const recoveryBox=document.createElement('section');recoveryBox.className='session-recovery';get('data-dialog').querySelector('.data-enhancements').append(recoveryBox);
     function renderSessionRecovery(){

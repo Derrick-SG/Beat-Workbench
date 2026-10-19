@@ -84,6 +84,6 @@ export function createWorkspaceController({browserRepo,settings,directoryFactory
     if(!pending){await initialize();return;}
     return commit(()=>{}, {retryCandidate:structuredClone(pending)});
   }
-  return {initialize,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
+  return {initialize,isWriting:()=>!!inFlight||queued>0,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
 }
 export function summary(w){return w?`${w.profiles.length} 个工作区 / ${w.profiles.reduce((n,p)=>n+p.records.length,0)} 条记录`:'无数据';}

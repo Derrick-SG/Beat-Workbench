@@ -871,3 +871,9 @@
 .flow-recovery-dialog input { background:#fff;min-height:44px; }
 .flow-recovery-dialog button { min-height:44px; }
 #flow-save-state { white-space:pre-line;line-height:1.6; }
+
+#storage-other-actions { margin-top:14px;padding-top:10px;border-top:1px solid #d7e0e3; }
+#storage-other-actions summary { cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600; }
+#storage-other-actions button { margin:4px 4px 4px 0; }
+.flow-live span { max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+@media(max-width:560px){ .flow-live span{max-width:140px;} }
