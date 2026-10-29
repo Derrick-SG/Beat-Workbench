@@ -30,3 +30,29 @@ export function recordsInRange(items,range=null){
   }
   return output;
 }
+
+function statRangeFor(item){const parse=t=>{const m=String(t||'').match(/^(\d{2}):(\d{2})$/);return m&&Number(m[1])<24&&Number(m[2])<60?Number(m[1])*60+Number(m[2]):null;};const start=parse(item.startTime);if(start===null)return null;let end=parse(item.endTime);if(end===null)end=start+Math.max(1,Number(item.hours)||1)*60;if(end<=start)end+=1440;return {start,end,project:item.project||'未归类项目'};}
+export function timeStatsFor(items) {
+      const itemsByDay = Object.create(null);
+      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
+      const projectMinutes = Object.create(null);
+      let totalMinutes = 0;
+      Object.values(itemsByDay).forEach((dayItems) => {
+        const ranges = dayItems.flatMap(item => item._ranges || [statRangeFor(item)]).filter(Boolean);
+        if (!ranges.length) return;
+        const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
+        for (let index = 0; index < markers.length - 1; index += 1) {
+          const start = markers[index];
+          const end = markers[index + 1];
+          const activeProjects = [...new Set(ranges.filter((range) => range.start < end && range.end > start).map((range) => range.project))];
+          if (!activeProjects.length) continue;
+          totalMinutes += end - start;
+          const share = (end - start) / activeProjects.length;
+          activeProjects.forEach((project) => { projectMinutes[project] = (projectMinutes[project] || 0) + share; });
+        }
+      });
+      return {
+        total: totalMinutes / 60,
+        projectHours: Object.fromEntries(Object.entries(projectMinutes).map(([project, minutes]) => [project, minutes / 60]))
+      };
+    }

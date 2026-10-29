@@ -1,5 +1,5 @@
 import { createFlowStartIntent, startDurableFlow, updateDurableFlowProject, settleDurableFlow, settleCheckpointFlow, flowStartTime, validateFlowEnd } from './timers/sessions.js';
-import { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming } from './model/time.js';
+import { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming, timeStatsFor as sharedTimeStatsFor } from './model/time.js';
 import { initializeWorkbench } from './bootstrap.js';
 import { parseProfileBackup, makeProfileBackup } from './model/workspace.js';
 import { validateAvatar } from './profile/avatar.js';
@@ -402,28 +402,7 @@ let checkpointBusy = false;
       return { start, end, project: item.project || '未归类项目' };
     }
     function timeStatsFor(items) {
-      const itemsByDay = {};
-      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
-      const projectMinutes = {};
-      let totalMinutes = 0;
-      Object.values(itemsByDay).forEach((dayItems) => {
-        const ranges = dayItems.flatMap(item => item._ranges || [timeRangeFor(item)]).filter(Boolean);
-        if (!ranges.length) return;
-        const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
-        for (let index = 0; index < markers.length - 1; index += 1) {
-          const start = markers[index];
-          const end = markers[index + 1];
-          const activeProjects = [...new Set(ranges.filter((range) => range.start < end && range.end > start).map((range) => range.project))];
-          if (!activeProjects.length) continue;
-          totalMinutes += end - start;
-          const share = (end - start) / activeProjects.length;
-          activeProjects.forEach((project) => { projectMinutes[project] = (projectMinutes[project] || 0) + share; });
-        }
-      });
-      return {
-        total: totalMinutes / 60,
-        projectHours: Object.fromEntries(Object.entries(projectMinutes).map(([project, minutes]) => [project, minutes / 60]))
-      };
+      return sharedTimeStatsFor(items);
     }
     function workDetailFor(item) {
       let detail = item.outcome || ('当前进度 ' + item.progress + '%');
@@ -1204,6 +1183,10 @@ let checkpointBusy = false;
       if (!meetingDraft) {
         meetingDialog.close();
         toast('会议计时已失效，请重新开始会议。');
+        return;
+      }
+      if (workbench.isPending() || workbench.controller.isWriting()) {
+        toast('会议记录尚未保存：上一项数据仍在保存或待恢复。请稍候重试，或在数据管理中重试/导出。');
         return;
       }
       const content = get('meeting-dialog-content').value.trim();

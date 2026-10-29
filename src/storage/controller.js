@@ -3,7 +3,8 @@ export function createWorkspaceController({browserRepo,settings,directoryFactory
   let inFlight=null,queued=0,lastRequest=Promise.resolve();
   let workspace=null,repo=browserRepo,source={mode:'browser'},tail=Promise.resolve(),generation=0,pending=null;
   let state={mode:'browser',phase:'resolving',dirty:false};
-  const emit=patch=>{state={...state,...patch};onState({...state});};
+  const savedListeners=new Set();
+  const emit=patch=>{state={...state,...patch};onState({...state});if(patch.phase==='ready'&&workspace){const saved=workspace;for(const listener of savedListeners)setTimeout(()=>{try{Promise.resolve(listener(structuredClone(saved))).catch(()=>{});}catch{}},0);}};
   const clone=()=>workspace?structuredClone(workspace):null;
   async function initialize(){
     if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本，完成后重试');
@@ -84,6 +85,6 @@ export function createWorkspaceController({browserRepo,settings,directoryFactory
     if(!pending){await initialize();return;}
     return commit(()=>{}, {retryCandidate:structuredClone(pending)});
   }
-  return {initialize,isWriting:()=>!!inFlight||queued>0,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
+  return {subscribeSaved:listener=>{savedListeners.add(listener);return ()=>savedListeners.delete(listener);},initialize,isWriting:()=>!!inFlight||queued>0,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
 }
 export function summary(w){return w?`${w.profiles.length} 个工作区 / ${w.profiles.reduce((n,p)=>n+p.records.length,0)} 条记录`:'无数据';}

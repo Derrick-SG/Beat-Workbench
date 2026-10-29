@@ -1,4 +1,4 @@
-import { recordsInRange, segmentHours, splitTimeSegments } from '../src/model/time.js';
+import { recordsInRange, segmentHours, splitTimeSegments, timeStatsFor as sharedTimeStatsFor } from '../src/model/time.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ function harness() {
   const storage = new Map([['logs:original', '[{"id":99}]']]);
   const elements = new Map();
   const context = vm.createContext({
-    Blob, console, workbench:{controller:{getWorkspace:()=>({workspaceId:'test'})}}, recordsInRange, segmentHours, splitTimeSegments, parseProfileBackup, makeProfileBackup, validateAvatar:async value=>value, flowStartedAt:null,meetingStartedAt:null,taskTracking:null,meetingDraft:null, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
+    Blob, console, sharedTimeStatsFor, workbench:{controller:{getWorkspace:()=>({workspaceId:'test'})}}, recordsInRange, segmentHours, splitTimeSegments, parseProfileBackup, makeProfileBackup, validateAvatar:async value=>value, flowStartedAt:null,meetingStartedAt:null,taskTracking:null,meetingDraft:null, profiles: [{ id: 'original', name: '原用户' }], activeProfileId: 'original', logs: [{ id: 99 }], tasks: [],
     window: { appStorage: { setItem: (key, value) => storage.set(key, value) } },
     profileDataKey: id => 'logs:' + id, profileTasksKey: id => 'tasks:' + id,
     today: () => '2026-10-08',

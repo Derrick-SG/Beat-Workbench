@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const project=createHash('sha256').update(path.resolve(root).toLowerCase()).digest('hex');
-const assets=['index.html','styles.css','app.js','bootstrap.js','model/workspace.js','model/time.js','profile/avatar.js','profile/editor.js','storage/browser.js','storage/directory.js','storage/settings.js','storage/controller.js','timers/sessions.js'];
+const assets=['index.html','styles.css','app.js','bootstrap.js','model/workspace.js','model/time.js','profile/avatar.js','profile/editor.js','storage/browser.js','storage/directory.js','storage/settings.js','storage/controller.js','timers/sessions.js','sync/notion.js','sync/projection.js'];
 export async function probeServer(port=4173){
   const base='http://127.0.0.1:'+port;
   try{

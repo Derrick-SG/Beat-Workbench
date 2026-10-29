@@ -989,7 +989,7 @@
       <div class="dialog-actions"><button class="dialog-cancel" id="cancel-meeting-record" type="button">不记录本次会议</button><button class="primary" type="submit">保存会议记录</button></div>
     </form>
   </dialog>
-  <span class="app-version" id="app-version" aria-label="当前版本">V1.1.1</span>
+  <span class="app-version" id="app-version" aria-label="当前版本">V1.1.2</span>
   <script type="module">const __modules = {};
 __modules["src/model/time.js"]=await (async()=>{
 
@@ -1026,7 +1026,33 @@ function recordsInRange(items,range=null){
   return output;
 }
 
-return {preserveSegmentedTiming,splitTimeSegments,segmentHours,recordsInRange};
+function statRangeFor(item){const parse=t=>{const m=String(t||'').match(/^(\d{2}):(\d{2})$/);return m&&Number(m[1])<24&&Number(m[2])<60?Number(m[1])*60+Number(m[2]):null;};const start=parse(item.startTime);if(start===null)return null;let end=parse(item.endTime);if(end===null)end=start+Math.max(1,Number(item.hours)||1)*60;if(end<=start)end+=1440;return {start,end,project:item.project||'未归类项目'};}
+function timeStatsFor(items) {
+      const itemsByDay = Object.create(null);
+      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
+      const projectMinutes = Object.create(null);
+      let totalMinutes = 0;
+      Object.values(itemsByDay).forEach((dayItems) => {
+        const ranges = dayItems.flatMap(item => item._ranges || [statRangeFor(item)]).filter(Boolean);
+        if (!ranges.length) return;
+        const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
+        for (let index = 0; index < markers.length - 1; index += 1) {
+          const start = markers[index];
+          const end = markers[index + 1];
+          const activeProjects = [...new Set(ranges.filter((range) => range.start < end && range.end > start).map((range) => range.project))];
+          if (!activeProjects.length) continue;
+          totalMinutes += end - start;
+          const share = (end - start) / activeProjects.length;
+          activeProjects.forEach((project) => { projectMinutes[project] = (projectMinutes[project] || 0) + share; });
+        }
+      });
+      return {
+        total: totalMinutes / 60,
+        projectHours: Object.fromEntries(Object.entries(projectMinutes).map(([project, minutes]) => [project, minutes / 60]))
+      };
+    }
+
+return {preserveSegmentedTiming,splitTimeSegments,segmentHours,recordsInRange,timeStatsFor};
 })();
 __modules["src/model/workspace.js"]=await (async()=>{
 const { segmentHours }=__modules["src/model/time.js"];
@@ -1240,6 +1266,60 @@ async function settleCheckpointFlow(controller,sessionId,now=Date.now()){
 
 return {createSessionManager,createFlowStartIntent,startDurableFlow,flowStartTime,validateFlowEnd,updateDurableFlowProject,settleDurableFlow,checkpointFlowPlan,settleCheckpointFlow};
 })();
+__modules["src/sync/projection.js"]=await (async()=>{
+const { timeStatsFor }=__modules["src/model/time.js"];
+const { validateWorkspace }=__modules["src/model/workspace.js"];
+
+
+function profileSnapshot(workspace){
+ const p=workspace.profiles.find(p=>p.id===workspace.activeProfileId);return {complete:true,workspaceId:workspace.workspaceId,profileId:p.id,name:p.name,revision:workspace.revision,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,records:structuredClone(p.records),tasks:structuredClone(p.tasks)};
+}
+function projectSnapshot(s){
+ if(!s||s.complete!==true||typeof s.workspaceId!=='string'||typeof s.profileId!=='string'||!Number.isSafeInteger(s.revision)||s.revision<0||!Array.isArray(s.records)||!Array.isArray(s.tasks)||s.records.length>10000||s.tasks.length>10000)throw Error('需要完整、有效且不超过10000条记录/任务的已保存用户快照');
+ if(s.workspaceId.length>200||s.profileId.length>200||s.records.some(r=>String(r.project||'').trim().length>120)||s.tasks.some(t=>String(t.project||'').trim().length>120||String(t.id).length>200))throw Error('同步身份或项目字段超过容量，未截断原数据');
+ const allowed=['complete','workspaceId','profileId','name','revision','timeZone','records','tasks'];if(Object.keys(s).some(k=>!allowed.includes(k)))throw Error('快照包含范围外字段');
+ validateWorkspace({format:'Beat-Workbench/workspace',schemaVersion:1,workspaceId:s.workspaceId,revision:s.revision,updatedAt:new Date().toISOString(),activeProfileId:s.profileId,profiles:[{id:s.profileId,name:s.name,avatar:null,records:s.records,tasks:s.tasks}],sessions:[],settledSessionIds:[]});
+ const scope=[s.workspaceId,s.profileId],key=(type,id)=>JSON.stringify([...scope,type,id]),projects=new Map();
+ const bucket=item=>JSON.stringify([!String(item.project||'').trim()||(!!item.flowProjectUnassigned&&String(item.project).trim()==='未分类')?'system':'named',String(item.project||'').trim()||'未分类']);
+ for(const item of [...s.records,...s.tasks]){const b=bucket(item);if(!projects.has(b))projects.set(b,{type:'project',key:key('project',b),data:{name:JSON.parse(b)[1],system:JSON.parse(b)[0]==='system',hours:0,tasks:0,completed:0}});}
+ const stats=timeStatsFor(s.records.map(r=>({...r,project:bucket(r)})));for(const [b,e] of projects)e.data.hours=stats.projectHours[b]||0;
+ for(const t of s.tasks){const p=projects.get(bucket(t));p.data.tasks++;if(t.completed)p.data.completed++;}
+ return [...projects.values(),...s.tasks.map(t=>({type:'task',key:key('task',t.id),projectKey:projects.get(bucket(t)).key,data:structuredClone(t)})),...s.records.map(r=>({type:'record',key:key('record',String(r.id)),projectKey:projects.get(bucket(r)).key,data:structuredClone(r)}))];
+}
+function snapshotCounts(s){const es=projectSnapshot(s);return {projects:es.filter(e=>e.type==='project').length,tasks:s.tasks.length,records:s.records.length};}
+
+return {profileSnapshot,projectSnapshot,snapshotCounts};
+})();
+__modules["src/sync/notion.js"]=await (async()=>{
+const {profileSnapshot}=__modules["src/sync/projection.js"];
+
+function mountNotionSync({controller,container,fetchImpl=globalThis.fetch,environment=globalThis,requestTimeoutMs=4000}){
+ const doc=container.ownerDocument||document,box=doc.createElement('section');box.className='notion-sync-section';box.innerHTML='<h3>Notion 单向同步</h3><p>仅同步当前用户已成功保存的项目、任务与工作记录。未保存草稿、头像和正在计时的会话不上传。</p><p data-notion-target></p><p data-notion-counts></p><p data-notion-status role="status" aria-live="polite"></p><p data-notion-error role="alert"></p><div class="profile-actions"><button type="button" data-notion-check>检查本机连接</button><button type="button" data-notion-import hidden>创建三表并首次同步</button><button type="button" data-notion-now hidden>立即同步</button><button type="button" data-notion-retry hidden>核对并重试</button><button type="button" data-notion-pause hidden>断开同步</button></div><p>首次同步以上展示范围，后续以APP管理字段为准；Notion独立备注保留。本地删除只标记来源已移除。断开不删除两端数据。</p>';container.append(box);
+ const field=name=>box.querySelector('[data-notion-'+name+']'),supported=environment.location?.protocol==='http:'&&environment.location?.hostname==='127.0.0.1';let token=null,serverState=null,error='',busy=false,sending=false,latest=null,disposed=false,preview=null,refreshId=0;
+ const current=()=>profileSnapshot(controller.getWorkspace());
+ const fingerprint=s=>JSON.stringify(s);
+ const validPreview=()=>preview&&preview.target===serverState?.parentPageId&&preview.fingerprint===fingerprint(current());
+ async function loadPreview(snapshot,state,id){preview=null;render();const value=await api('preview',snapshot);if(disposed||id!==refreshId||fingerprint(snapshot)!==fingerprint(current())||state.parentPageId!==serverState?.parentPageId)return false;preview={snapshot,counts:value.counts,target:state.parentPageId,fingerprint:fingerprint(snapshot)};return true;}
+ const bound=s=>s?.binding&&s.binding.workspaceId===current().workspaceId&&s.binding.profileId===current().profileId&&s.binding.parentPageId===s.parentPageId;
+ async function fetchTimed(url,options){const abort=new AbortController();let timer;try{return await Promise.race([fetchImpl(url,{...options,signal:abort.signal}),new Promise((_,reject)=>{timer=setTimeout(()=>{abort.abort();reject(Error('本机连接等待超时，记录仍在本地；稍后自动重试'));},requestTimeoutMs);})]);}finally{clearTimeout(timer);}}
+ async function api(action,data){if(!supported)throw Error('离线HTML不启用Notion同步，请使用本机工作台服务');if(!token){const r=await fetchTimed('/api/notion/session',{headers:{'X-Workbench-Request':'1'},cache:'no-store'});if(!r.ok)throw Error('本机服务未启用同步接口，请先按说明重启本机服务');token=(await r.json()).token;}
+ const r=await fetchTimed('/api/notion/'+action,{method:action==='status'?'GET':'POST',headers:{'X-Workbench-Request':'1','X-Workbench-Token':token,'Content-Type':'application/json'},...(action==='status'?{}:{body:JSON.stringify(data||{})}),cache:'no-store'});if(r.status===403)token=null;let v;try{v=await r.json();}catch{throw Error('本机同步接口响应无效');}if(!r.ok)throw Error(v.error||'本机同步未完成');return v;}
+ function render(){if(disposed)return;const p=current(),s=serverState;field('target').replaceChildren();const info=doc.createElement('span');info.textContent='当前用户：'+p.name+'（仅此用户）'+(s?.targetName?' · 目标：'+s.targetName:'');field('target').append(info);if(s?.targetUrl){const a=doc.createElement('a');a.href=s.targetUrl;a.target='_blank';a.rel='noopener noreferrer';a.textContent=' 打开Notion';field('target').append(a);}
+ if(!validPreview())preview=null;const counts=preview?.counts;field('counts').textContent=counts?'将同步：'+counts.projects+' 个项目 / '+counts.tasks+' 项任务 / '+counts.records+' 条记录':'';
+ const phases={unconfigured:'未配置：请运行 scripts/configure-notion.ps1 安全配置，网页不接收令牌',ready:'连接就绪，尚未首次同步',queued:'等待同步',syncing:'正在同步',synced:'已同步',partial:'部分失败',unknown:'创建结果未知：仅核对，不重复创建',paused:'已断开，数据保留','target-changed':'目标已更换，请确认新目标后首次同步'};
+ field('error').textContent=error||s?.error||'';field('status').textContent=(!supported?'离线HTML不提供自动同步，请使用本机服务':(busy?'正在检查…':(phases[s?.phase]||'正在读取本机状态')))+(s?' · 三表 '+(s.structure?.completed||0)+'/3 · 已完成 '+(s.completed||0)+' · 待同步 '+(s.pending||0)+' / 失败 '+(s.failed||0)+(s.lastSuccess?' · 最后成功 '+new Date(s.lastSuccess).toLocaleString():''):'');
+ const isBound=bound(s);const initializing=isBound&&(s.structure?.completed??3)<3;field('import').textContent=initializing?'继续初始化与同步':isBound?'恢复此用户同步':'创建三表并首次同步';field('retry').textContent=s?.phase==='unknown'?'仅核对创建结果':initializing?'继续初始化与同步':'核对并重试';for(const action of ['check','import','now','retry','pause'])field(action).disabled=busy||!supported;
+ field('import').disabled=busy||!supported||!validPreview();field('import').hidden=!s?.configured||(isBound&&s.enabled);field('now').hidden=!isBound||!s?.enabled;field('retry').hidden=!isBound||!['unknown','partial'].includes(s?.phase);field('pause').hidden=!isBound||!s?.enabled;
+ }
+ async function refresh(){const id=++refreshId;if(!supported||disposed){render();return;}const snapshot=current();try{const state=await api('status');if(id!==refreshId||disposed||fingerprint(snapshot)!==fingerprint(current()))return;serverState=state;if(!validPreview())preview=null;render();if(state.configured)await loadPreview(snapshot,state,id);if(id!==refreshId||disposed)return;error='';if(serverState.binding&&!bound(serverState)&&serverState.enabled)serverState=await api('pause');render();if(bound(serverState)&&serverState.enabled)await deliver();}catch(e){if(id!==refreshId||disposed)return;preview=null;error=e.message;render();}}
+ async function deliver(snapshot){if(snapshot)latest=snapshot;if(sending||!bound(serverState)||!serverState.enabled||disposed)return;sending=true;try{const value=latest||current();latest=null;const p=current();if(value.workspaceId!==p.workspaceId||value.profileId!==p.profileId)return;serverState=await api('snapshot',value);error='';}catch(e){error=e.message;}finally{sending=false;render();}}
+ const unsubscribe=controller.subscribeSaved?.(workspace=>{if(disposed)return;const value=profileSnapshot(workspace),p=current();if(!validPreview()){preview=null;++refreshId;}render();if(value.workspaceId!==p.workspaceId||value.profileId!==p.profileId)return;if(serverState?.binding&&!bound(serverState)){api('pause').then(s=>{serverState=s;render();}).catch(e=>{error=e.message;render();});return;}return deliver(value);});
+ async function action(name){if(busy||disposed)return;busy=true;++refreshId;const shown=preview;render();try{if(name==='check'){const id=++refreshId;token=null;serverState=await api('check');await loadPreview(current(),serverState,id);}if(name==='import'){const snapshot=current(),state=await api('status');serverState=state;if(!shown||shown.target!==state.parentPageId||shown.fingerprint!==fingerprint(snapshot)||fingerprint(snapshot)!==fingerprint(current())){preview=null;await loadPreview(current(),state,++refreshId);error='同步范围或目标已变化，请核对新预览后再点击首次同步';return;}serverState=await api('import',shown.snapshot);}if(name==='now'){await deliver(current());serverState=await api('retry');}if(name==='retry')serverState=await api('retry');if(name==='pause')serverState=await api('pause');error='';}catch(e){if(name==='check'||name==='import')preview=null;error=e.message;}finally{busy=false;render();}}
+ for(const name of ['check','import','now','retry','pause'])field(name).onclick=()=>action(name);const online=()=>refresh();environment.addEventListener?.('online',online);const timer=setInterval(()=>refresh(),10000);render();void refresh();return {refresh,deliver,dispose(){disposed=true;clearInterval(timer);unsubscribe?.();environment.removeEventListener?.('online',online);}};
+}
+
+return {mountNotionSync};
+})();
 __modules["src/storage/settings.js"]=await (async()=>{
 
 function openDatabase(indexedDB=globalThis.indexedDB) {
@@ -1410,7 +1490,8 @@ function createWorkspaceController({browserRepo,settings,directoryFactory,onStat
   let inFlight=null,queued=0,lastRequest=Promise.resolve();
   let workspace=null,repo=browserRepo,source={mode:'browser'},tail=Promise.resolve(),generation=0,pending=null;
   let state={mode:'browser',phase:'resolving',dirty:false};
-  const emit=patch=>{state={...state,...patch};onState({...state});};
+  const savedListeners=new Set();
+  const emit=patch=>{state={...state,...patch};onState({...state});if(patch.phase==='ready'&&workspace){const saved=workspace;for(const listener of savedListeners)setTimeout(()=>{try{Promise.resolve(listener(structuredClone(saved))).catch(()=>{});}catch{}},0);}};
   const clone=()=>workspace?structuredClone(workspace):null;
   async function initialize(){
     if(inFlight||queued)throw storageError('busy','文件写入仍在进行，请先导出副本，完成后重试');
@@ -1491,7 +1572,7 @@ function createWorkspaceController({browserRepo,settings,directoryFactory,onStat
     if(!pending){await initialize();return;}
     return commit(()=>{}, {retryCandidate:structuredClone(pending)});
   }
-  return {initialize,isWriting:()=>!!inFlight||queued>0,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
+  return {subscribeSaved:listener=>{savedListeners.add(listener);return ()=>savedListeners.delete(listener);},initialize,isWriting:()=>!!inFlight||queued>0,getWorkspace:clone,getPending:()=>pending?structuredClone(pending):null,getState:()=>({...state}),getSource:()=>source,commit,flush:()=>lastRequest,previewDirectory,activateDirectory,migrateDirectory,returnToBrowser,useOriginalBrowserData,retry,getBrowserSnapshot:()=>browserRepo.load()};
 }
 function summary(w){return w?`${w.profiles.length} 个工作区 / ${w.profiles.reduce((n,p)=>n+p.records.length,0)} 条记录`:'无数据';}
 
@@ -1557,6 +1638,7 @@ async function validateAvatar(avatar) {
 return {prepareAvatar,validateAvatar};
 })();
 __modules["src/bootstrap.js"]=await (async()=>{
+const {mountNotionSync}=__modules["src/sync/notion.js"];
 const {createBrowserRepository}=__modules["src/storage/browser.js"];
 const {createSourceSettings}=__modules["src/storage/settings.js"];
 const {createDirectoryRepository,detectDirectorySupport,pickDirectory,requestAccess,readPreviousSnapshot}=__modules["src/storage/directory.js"];
@@ -1571,6 +1653,14 @@ const {validateWorkspace,newWorkspace,settleLegacySnapshot}=__modules["src/model
 
 
 
+
+
+function shouldBlockWorkspaceMutation({pending,profileBusy,sourceBusy,phase,hasPendingSnapshot,target}) {
+  const busy=pending||profileBusy||sourceBusy||phase==='saving';
+  const allowedWhileSaving=target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery,#meeting-form');
+  const allowedWithPendingSnapshot=target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,#meeting-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');
+  return busy?!allowedWhileSaving:hasPendingSnapshot&&!allowedWithPendingSnapshot;
+}
 
 async function initializeWorkbench(){
   const get=id=>document.getElementById(id);
@@ -1765,8 +1855,9 @@ async function initializeWorkbench(){
   }
   browserRecovery.id='browser-recovery';browserRecovery.textContent='选择旧浏览器副本…';browserRecovery.onclick=chooseBrowserRecovery;
   function blockWorkspaceMutation(event){
-    const busy=pending||profileBusy||sourceBusy||controller.getState().phase==='saving';
-    const blocked=busy?!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');
+    const input={pending,profileBusy,sourceBusy,phase:controller.getState().phase,hasPendingSnapshot:!!controller.getPending(),target:event.target};
+    const fallback=()=>{const busy=input.pending||input.profileBusy||input.sourceBusy||input.phase==='saving';const allowedWhileSaving=input.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery,#meeting-form');const allowedWithPendingSnapshot=input.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,#meeting-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');return busy?!allowedWhileSaving:input.hasPendingSnapshot&&!allowedWithPendingSnapshot;};
+    const blocked=typeof shouldBlockWorkspaceMutation==='function'?shouldBlockWorkspaceMutation(input):fallback();
     if(blocked){event.preventDefault();event.stopImmediatePropagation();}
   }
   document.addEventListener('click',blockWorkspaceMutation,true);
@@ -1779,14 +1870,15 @@ async function initializeWorkbench(){
   }},true);
   get('open-data-dialog').addEventListener('click',resetDraft,true);
   resetDraft();stateChanged(controller.getState());
+  mountNotionSync({controller,container:dialog.querySelector('.data-enhancements')});
   return {storage,controller,flushLegacy,exportCurrentSnapshot,requestSourceAccess:async()=>{const handle=controller.getSource().handle;if(handle&&!await requestAccess(handle))throw Error('文件夹授权未获允许');},avatar,sync,resetDraft,isPending:()=>pending||legacyDirty||!!controller.getPending(),delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;hasFormDraft=callbacks.hasFormDraft||(()=>false);discardFormDraft=callbacks.discardFormDraft||(()=>{});},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
 }
 
-return {initializeWorkbench};
+return {shouldBlockWorkspaceMutation,initializeWorkbench};
 })();
 __modules["src/app.js"]=await (async()=>{
 const { createFlowStartIntent, startDurableFlow, updateDurableFlowProject, settleDurableFlow, settleCheckpointFlow, flowStartTime, validateFlowEnd }=__modules["src/timers/sessions.js"];
-const { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming }=__modules["src/model/time.js"];
+const { recordsInRange, segmentHours, splitTimeSegments, preserveSegmentedTiming, timeStatsFor : sharedTimeStatsFor }=__modules["src/model/time.js"];
 const { initializeWorkbench }=__modules["src/bootstrap.js"];
 const { parseProfileBackup, makeProfileBackup }=__modules["src/model/workspace.js"];
 const { validateAvatar }=__modules["src/profile/avatar.js"];
@@ -2194,28 +2286,7 @@ let checkpointBusy = false;
       return { start, end, project: item.project || '未归类项目' };
     }
     function timeStatsFor(items) {
-      const itemsByDay = {};
-      recordsInRange(items).forEach((item) => { (itemsByDay[item.workDate] ||= []).push(item); });
-      const projectMinutes = {};
-      let totalMinutes = 0;
-      Object.values(itemsByDay).forEach((dayItems) => {
-        const ranges = dayItems.flatMap(item => item._ranges || [timeRangeFor(item)]).filter(Boolean);
-        if (!ranges.length) return;
-        const markers = [...new Set(ranges.flatMap((range) => [range.start, range.end]))].sort((a, b) => a - b);
-        for (let index = 0; index < markers.length - 1; index += 1) {
-          const start = markers[index];
-          const end = markers[index + 1];
-          const activeProjects = [...new Set(ranges.filter((range) => range.start < end && range.end > start).map((range) => range.project))];
-          if (!activeProjects.length) continue;
-          totalMinutes += end - start;
-          const share = (end - start) / activeProjects.length;
-          activeProjects.forEach((project) => { projectMinutes[project] = (projectMinutes[project] || 0) + share; });
-        }
-      });
-      return {
-        total: totalMinutes / 60,
-        projectHours: Object.fromEntries(Object.entries(projectMinutes).map(([project, minutes]) => [project, minutes / 60]))
-      };
+      return sharedTimeStatsFor(items);
     }
     function workDetailFor(item) {
       let detail = item.outcome || ('当前进度 ' + item.progress + '%');
@@ -2996,6 +3067,10 @@ let checkpointBusy = false;
       if (!meetingDraft) {
         meetingDialog.close();
         toast('会议计时已失效，请重新开始会议。');
+        return;
+      }
+      if (workbench.isPending() || workbench.controller.isWriting()) {
+        toast('会议记录尚未保存：上一项数据仍在保存或待恢复。请稍候重试，或在数据管理中重试/导出。');
         return;
       }
       const content = get('meeting-dialog-content').value.trim();

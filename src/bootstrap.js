@@ -1,3 +1,4 @@
+import {mountNotionSync} from './sync/notion.js';
 import {createBrowserRepository} from './storage/browser.js';
 import {createSourceSettings} from './storage/settings.js';
 import {createDirectoryRepository,detectDirectorySupport,pickDirectory,requestAccess,readPreviousSnapshot} from './storage/directory.js';
@@ -5,6 +6,13 @@ import {createWorkspaceController,summary} from './storage/controller.js';
 import {saveProfileDraft} from './profile/editor.js';
 import {prepareAvatar,validateAvatar} from './profile/avatar.js';
 import {validateWorkspace,newWorkspace,settleLegacySnapshot} from './model/workspace.js';
+
+export function shouldBlockWorkspaceMutation({pending,profileBusy,sourceBusy,phase,hasPendingSnapshot,target}) {
+  const busy=pending||profileBusy||sourceBusy||phase==='saving';
+  const allowedWhileSaving=target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery,#meeting-form');
+  const allowedWithPendingSnapshot=target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,#meeting-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');
+  return busy?!allowedWhileSaving:hasPendingSnapshot&&!allowedWithPendingSnapshot;
+}
 
 export async function initializeWorkbench(){
   const get=id=>document.getElementById(id);
@@ -199,8 +207,9 @@ export async function initializeWorkbench(){
   }
   browserRecovery.id='browser-recovery';browserRecovery.textContent='选择旧浏览器副本…';browserRecovery.onclick=chooseBrowserRecovery;
   function blockWorkspaceMutation(event){
-    const busy=pending||profileBusy||sourceBusy||controller.getState().phase==='saving';
-    const blocked=busy?!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery'):controller.getPending()&&!event.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');
+    const input={pending,profileBusy,sourceBusy,phase:controller.getState().phase,hasPendingSnapshot:!!controller.getPending(),target:event.target};
+    const fallback=()=>{const busy=input.pending||input.profileBusy||input.sourceBusy||input.phase==='saving';const allowedWhileSaving=input.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#retry-save,#reconnect-folder,#export-workspace,.directory-choice,.flow-checkpoint-recovery,#meeting-form');const allowedWithPendingSnapshot=input.target.closest('#open-data-dialog,#close-data-dialog,#flow-data-recovery,#leave-flow-mode,#start-flow-session,#complete-flow-session,#flow-form,#meeting-form,.flow-checkpoint-recovery,#retry-save,#export-workspace,#reconnect-folder,#original-browser,#browser-recovery');return busy?!allowedWhileSaving:input.hasPendingSnapshot&&!allowedWithPendingSnapshot;};
+    const blocked=typeof shouldBlockWorkspaceMutation==='function'?shouldBlockWorkspaceMutation(input):fallback();
     if(blocked){event.preventDefault();event.stopImmediatePropagation();}
   }
   document.addEventListener('click',blockWorkspaceMutation,true);
@@ -213,5 +222,6 @@ export async function initializeWorkbench(){
   }},true);
   get('open-data-dialog').addEventListener('click',resetDraft,true);
   resetDraft();stateChanged(controller.getState());
+  mountNotionSync({controller,container:dialog.querySelector('.data-enhancements')});
   return {storage,controller,flushLegacy,exportCurrentSnapshot,requestSourceAccess:async()=>{const handle=controller.getSource().handle;if(handle&&!await requestAccess(handle))throw Error('文件夹授权未获允许');},avatar,sync,resetDraft,isPending:()=>pending||legacyDirty||!!controller.getPending(),delayToast:message=>{if(pending||legacyDirty){toastQueue.push(message);return true;}return false;},bind:callbacks=>{refresh=callbacks.refresh;timerGuard=callbacks.timerGuard;formGuard=callbacks.formGuard;hasFormDraft=callbacks.hasFormDraft||(()=>false);discardFormDraft=callbacks.discardFormDraft||(()=>{});},isDirectory:()=>controller.getState().mode==='directory',get temporary(){return temporary;}};
 }
