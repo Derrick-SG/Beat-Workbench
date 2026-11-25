@@ -1,10 +1,12 @@
 # 项目记忆索引
 
-最新记录：[20261123_Beat-Workbench_V1.1.3_memory.MD](20261123_Beat-Workbench_V1.1.3_memory.MD)
+最新记录：[20261125_Beat-Workbench_V1.1.4_memory.MD](20261125_Beat-Workbench_V1.1.4_memory.MD)
 
 新阶段开始前须先读取最新记录，再核对实际工程。每次上传前更新记录与索引，一同提交。
 
 ## 版本记录
+
+- V1.1.4 本机 ChatGPT 辅助报告（最终包和真实授权待核对）：20261125_Beat-Workbench_V1.1.4_memory.MD。
 
 - V1.1.3 界面精简与去外框（Reviewer 已验收，待同步）：20261123_Beat-Workbench_V1.1.3_memory.MD。
 
